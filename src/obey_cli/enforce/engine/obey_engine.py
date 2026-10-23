@@ -81,7 +81,19 @@ def glob_match(globs: List[str], path: str) -> bool:
 
 _SEPARATORS = ("&&", "||", ";", "|", "&", "\n")
 _ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-_SIMPLE_WRAPPERS = {"sudo", "time", "nohup", "exec", "command", "builtin", "nice", "doas", "stdbuf", "caffeinate"}
+_SIMPLE_WRAPPERS = {
+    "sudo",
+    "time",
+    "nohup",
+    "exec",
+    "command",
+    "builtin",
+    "nice",
+    "doas",
+    "stdbuf",
+    "caffeinate",
+    "corepack",
+}
 _SHELLS = {
     "bash",
     "sh",
