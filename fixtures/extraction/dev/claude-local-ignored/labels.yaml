@@ -1,0 +1,63 @@
+case: claude-local-ignored
+files: ["CLAUDE.md", "docs/conventions.md"]
+rules:
+  # - Use `uv` for dependency management. Do not use `pip`.
+  - file: CLAUDE.md
+    line: 9
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install flask-cors", "pip install -r requirements.txt", "python3 -m pip install ruff"]
+    obeys: ["uv add flask-cors", "uv sync", "uv run pytest"]
+  # - Only `pytest`, `ruff` and `mypy` may be added as dependencies without approval.
+  - file: CLAUDE.md
+    line: 10
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["uv add flask-cors", "pyproject.toml: +sqlalchemy-utils"]
+    obeys: ["uv add --dev pytest", "pyproject.toml: +ruff", "uv add --dev mypy"]
+  # - Do not use `print()` in `app/`; log with `app.logger`.
+  - file: CLAUDE.md
+    line: 11
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["app/forms/views.py: print(\"saved\", form.id)", "app/db.py:     print(engine)"]
+    obeys: ["app/forms/views.py: app.logger.info(\"saved %s\", form.id)", "scripts/seed.py: print(engine)"]
+  # - A change in `app/` needs a matching change in `tests/`.
+  - file: CLAUDE.md
+    line: 12
+    status: active
+    type: path_required_with
+    scope_paths: ["**"]
+    violates: [["app/forms/views.py"], ["app/db.py", "README.md"]]
+    obeys: [["app/forms/views.py", "tests/test_views.py"], ["docs/conventions.md"]]
+  # - Commit messages are Conventional Commits (type, optional scope, colon, summary).
+  - file: CLAUDE.md
+    line: 13
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Add form export", "fixed bug", "Feature: export"]
+    obeys: ["feat: add form export", "fix(db): close sessions on error", "refactor: split views"]
+  # - Be careful with schema changes.
+  - file: CLAUDE.md
+    line: 14
+    status: uncheckable
+  # - Explain the trade-offs when you choose between two designs.
+  - file: CLAUDE.md
+    line: 15
+    status: uncheckable
+  # - New modules under `app/` begin with a one-line module docstring.
+  - file: docs/conventions.md
+    line: 8
+    status: active
+    type: content_required_added
+    scope_paths: ["**"]
+    violates: ["app/forms/schema.py: import json", "app/export.py: from app import db"]
+    obeys: ["app/forms/schema.py: \"\"\"Form schema helpers.\"\"\"", "tests/test_export.py: import pytest"]
+  # - Prefer composition over inheritance.
+  - file: docs/conventions.md
+    line: 9
+    status: uncheckable

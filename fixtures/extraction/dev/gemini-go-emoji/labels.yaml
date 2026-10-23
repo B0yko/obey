@@ -1,0 +1,67 @@
+case: gemini-go-emoji
+files: ["GEMINI.md"]
+rules:
+  # - ✅ Run `gofmt -l .` before you finish and fix anything it lists.
+  - file: GEMINI.md
+    line: 8
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["go vet ./...", "go build ./...", "go test ./..."]
+    obeys: ["gofmt -l .", "gofmt -l ./cmd ./internal"]
+  # - ✅ Wrap errors with `fmt.Errorf("...: %w", err)`.
+  - file: GEMINI.md
+    line: 9
+    status: uncheckable
+  # - ✅ Keep each cobra command in its own file under `cmd/`.
+  - file: GEMINI.md
+    line: 10
+    status: uncheckable
+  # - 🧪 Add a test for every bug you fix.
+  - file: GEMINI.md
+    line: 11
+    status: uncheckable
+  # - 🚫 Don't call `panic(` in packages under `internal/`; return an error instead.
+  - file: GEMINI.md
+    line: 15
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["internal/catalog/load.go:     panic(err)", "internal/store/open.go: panic(\"db not initialised\")"]
+    obeys: ["internal/catalog/load.go:     return fmt.Errorf(\"load catalog: %w\", err)", "cmd/larkspur/main.go:     panic(err)"]
+  # - 🚫 Don't edit anything in `internal/gen/`; it is produced by `go generate`.
+  - file: GEMINI.md
+    line: 16
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["internal/gen/seeds.go", "internal/gen/queries/list.sql.go"]
+    obeys: ["internal/catalog/load.go", "cmd/larkspur/main.go"]
+  # - 🚫 Don't add new third-party modules.
+  - file: GEMINI.md
+    line: 17
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["go get github.com/spf13/viper", "go.mod: +github.com/google/uuid"]
+    obeys: ["go mod tidy", "go build ./..."]
+  # - ⚠️ Commits are made by the maintainer, so don't run `git commit`.
+  - file: GEMINI.md
+    line: 18
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"add seed import\"", "git commit -am \"fix catalog\""]
+    obeys: ["git status", "git diff"]
+  # - ⚠️ Never push to a remote.
+  - file: GEMINI.md
+    line: 19
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin main"]
+    obeys: ["git add cmd/seed.go", "git status"]
+  # - 💬 Be concise in your replies.
+  - file: GEMINI.md
+    line: 20
+    status: uncheckable

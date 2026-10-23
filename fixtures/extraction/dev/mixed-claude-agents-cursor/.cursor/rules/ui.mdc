@@ -1,0 +1,11 @@
+---
+description: UI component rules
+globs: src/components/**/*.tsx
+alwaysApply: false
+---
+
+Components are styled with CSS modules and tested with React Testing Library.
+
+- Component files use PascalCase names (`UserTable.tsx`).
+- Do not add inline `style={{ ... }}` props; use the CSS module next to the component.
+- Keep components under 200 lines.

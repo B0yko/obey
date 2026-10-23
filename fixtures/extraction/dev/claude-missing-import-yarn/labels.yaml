@@ -1,0 +1,63 @@
+case: claude-missing-import-yarn
+files: ["CLAUDE.md", "docs/frontend.md"]
+rules:
+  # - Use yarn. Do not run npm or pnpm.
+  - file: CLAUDE.md
+    line: 11
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "pnpm add dayjs", "npm i -D vitest"]
+    obeys: ["yarn install", "yarn add dayjs", "yarn workspace web build"]
+  # - Never use `@ts-ignore` or `@ts-nocheck`; write a precise type instead.
+  - file: CLAUDE.md
+    line: 12
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["web/src/Widget.tsx: // @ts-ignore", "api/src/server.ts: // @ts-nocheck"]
+    obeys: ["web/src/Widget.tsx: // @ts-expect-error legacy typing, see TD-41", "api/src/server.ts: import express from 'express';"]
+  # - Run `yarn lint` before you finish.
+  - file: CLAUDE.md
+    line: 13
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["yarn test", "yarn build", "yarn install"]
+    obeys: ["yarn lint", "yarn lint --fix"]
+  # - Never run `git push`.
+  - file: CLAUDE.md
+    line: 14
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin main"]
+    obeys: ["git commit -m \"fix widget\"", "git log -3"]
+  # - Your final message must start with `Changed:` followed by the files you touched.
+  - file: CLAUDE.md
+    line: 15
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Fixed the widget layout.", "I touched web/src/Widget.tsx."]
+    obeys: ["Changed: web/src/Widget.tsx\nFixed the layout.", "Changed: api/src/server.ts, api/src/routes.ts"]
+  # - Ask before changing the public widget API.
+  - file: CLAUDE.md
+    line: 16
+    status: uncheckable
+  # - Do not use `document.write` or assign to `innerHTML`.
+  - file: docs/frontend.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["web/src/Widget.tsx: document.write(html);", "web/src/Tooltip.tsx: el.innerHTML = label;"]
+    obeys: ["web/src/Widget.tsx: root.render(<Widget />);", "web/src/Tooltip.tsx: el.textContent = label;"]
+  # - Prefer React Query over hand-rolled fetch effects.
+  - file: docs/frontend.md
+    line: 9
+    status: uncheckable
+  # - Every interactive element needs an accessible label.
+  - file: docs/frontend.md
+    line: 10
+    status: uncheckable

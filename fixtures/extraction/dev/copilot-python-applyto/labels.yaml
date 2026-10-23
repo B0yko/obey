@@ -1,0 +1,75 @@
+case: copilot-python-applyto
+files: [".github/copilot-instructions.md", ".github/instructions/python.instructions.md", ".github/instructions/tests.instructions.md"]
+rules:
+  # - Dependencies are managed with pip and a pinned `requirements.txt`. Do not introduce
+  - file: .github/copilot-instructions.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["poetry add flask-cors", "uv add flask-cors", "pipenv install"]
+    obeys: ["pip install flask-cors", "pip install -r requirements.txt", "pip freeze"]
+  # - Run `pytest` before you finish a change to Python code.
+  - file: .github/copilot-instructions.md
+    line: 10
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["flake8 app", "python -m mypy app", "pip install -r requirements.txt"]
+    obeys: ["pytest", "pytest -q", "pytest tests/test_ledger.py"]
+  # - Answer in plain language and avoid jargon where possible.
+  - file: .github/copilot-instructions.md
+    line: 11
+    status: uncheckable
+  # - Ask when a requirement is ambiguous.
+  - file: .github/copilot-instructions.md
+    line: 12
+    status: uncheckable
+  # - Do not use `# type: ignore`.
+  - file: .github/instructions/python.instructions.md
+    line: 7
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.py"]
+    violates: ["app/ledger.py: rows = fetch()  # type: ignore", "tests/test_ledger.py: import yaml  # type: ignore[import]"]
+    obeys: ["app/ledger.py: rows = cast(list[Row], fetch())", "tests/test_ledger.py: import yaml"]
+  # - Do not call `print()` in `app/`.
+  - file: .github/instructions/python.instructions.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.py"]
+    violates: ["app/ledger.py: print(\"posted\", entry.id)", "app/api/routes.py:     print(request.json)"]
+    obeys: ["app/ledger.py: logger.info(\"posted %s\", entry.id)", "scripts/export.py: print(rows)"]
+  # - Name modules in snake_case.
+  - file: .github/instructions/python.instructions.md
+    line: 9
+    status: active
+    type: file_naming
+    scope_paths: ["**/*.py"]
+    violates: ["app/LedgerService.py", "app/ledger-service.py"]
+    obeys: ["app/ledger_service.py", "app/api/routes.py"]
+  # - Keep functions short.
+  - file: .github/instructions/python.instructions.md
+    line: 10
+    status: uncheckable
+  # - Test files are named `test_<module>.py`.
+  - file: .github/instructions/tests.instructions.md
+    line: 9
+    status: active
+    type: file_naming
+    scope_paths: ["tests/**/*.py"]
+    violates: ["tests/ledger_test.py", "tests/api/routes_test.py"]
+    obeys: ["tests/test_ledger.py", "tests/api/test_routes.py"]
+  # - When you change code in `app/`, add or update a test in `tests/`.
+  - file: .github/instructions/tests.instructions.md
+    line: 10
+    status: active
+    type: path_required_with
+    scope_paths: ["tests/**/*.py"]
+    violates: [["app/ledger.py"], ["app/api/routes.py", "README.md"]]
+    obeys: [["app/ledger.py", "tests/test_ledger.py"], ["README.md"]]
+  # - Use fixtures instead of module-level state.
+  - file: .github/instructions/tests.instructions.md
+    line: 11
+    status: uncheckable

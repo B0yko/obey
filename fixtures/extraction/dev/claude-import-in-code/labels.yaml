@@ -1,0 +1,63 @@
+case: claude-import-in-code
+files: ["CLAUDE.md", "docs/testing.md"]
+rules:
+  # - Use bun for everything. Never use npm, npx, yarn or pnpm.
+  - file: CLAUDE.md
+    line: 18
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "npx tsc --noEmit", "yarn add hono", "pnpm add hono"]
+    obeys: ["bun install", "bun add hono", "bun test"]
+  # - Do not add `eslint-disable` comments. Fix the code instead.
+  - file: CLAUDE.md
+    line: 19
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["server/routes/notes.ts: // eslint-disable-next-line @typescript-eslint/no-explicit-any", "web/src/App.tsx: /* eslint-disable */"]
+    obeys: ["server/routes/notes.ts: const body = await req.json();", "web/src/App.tsx: export function App() {"]
+  # - Do not commit unless the task asks for it.
+  - file: CLAUDE.md
+    line: 20
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"add notes route\"", "git commit --amend"]
+    obeys: ["git status", "git diff --stat"]
+  # - Prefer early returns over deeply nested conditionals.
+  - file: CLAUDE.md
+    line: 21
+    status: uncheckable
+  # - Keep route handlers small; move logic into `server/services/`.
+  - file: CLAUDE.md
+    line: 22
+    status: uncheckable
+  # - Run `bun test` after changing code in `server/` or `web/`.
+  - file: docs/testing.md
+    line: 8
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["bun run dev", "bun install", "bun run lint"]
+    obeys: ["bun test", "bun test tests/notes.test.ts"]
+  # - Test files are named `<name>.test.ts` and live in `tests/`.
+  - file: docs/testing.md
+    line: 9
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["tests/notes.spec.ts", "tests/auth.spec.ts"]
+    obeys: ["tests/notes.test.ts", "tests/api/auth-flow.test.ts"]
+  # - Do not skip tests with `test.skip` or `it.skip`.
+  - file: docs/testing.md
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["tests/notes.test.ts: test.skip(\"creates a note\", () => {", "tests/auth.test.ts:   it.skip(\"rejects bad tokens\", async () => {"]
+    obeys: ["tests/notes.test.ts: test(\"creates a note\", () => {", "tests/auth.test.ts:   it(\"rejects bad tokens\", async () => {"]
+  # - Prefer testing behaviour over implementation details.
+  - file: docs/testing.md
+    line: 11
+    status: uncheckable

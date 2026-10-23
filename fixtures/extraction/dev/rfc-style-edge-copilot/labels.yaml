@@ -1,0 +1,91 @@
+case: rfc-style-edge-copilot
+files: ["AGENTS.md", "apps/edge/AGENTS.md", ".github/instructions/edge.instructions.md"]
+rules:
+  # - Contributors MUST use bun. `npm`, `yarn` and `pnpm` MUST NOT be used.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "yarn add hono", "pnpm add hono"]
+    obeys: ["bun add hono", "bun install", "bun test"]
+  # - `bun.lock` MUST NOT be edited by hand.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["bun.lock", "apps/edge/bun.lock"]
+    obeys: ["package.json", "apps/edge/src/index.ts"]
+  # - New runtime dependencies SHOULD be agreed in an issue before they are added.
+  - file: AGENTS.md
+    line: 10
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["bun add hono", "package.json: +itty-router"]
+    obeys: ["bun install", "bun test"]
+  # - Changes MUST be small enough to review in one sitting.
+  - file: AGENTS.md
+    line: 14
+    status: uncheckable
+  # - A commit MUST NOT be created unless the user asks for one.
+  - file: AGENTS.md
+    line: 15
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"feat: add cache header\"", "git commit -am wip"]
+    obeys: ["git status", "git diff"]
+  # - Agents MUST NOT push to any remote.
+  - file: AGENTS.md
+    line: 16
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin HEAD"]
+    obeys: ["git add apps/edge/src/index.ts", "git status"]
+  # - The final message SHOULD end with a line starting `Done:` followed by a one-line summary.
+  - file: AGENTS.md
+    line: 17
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Added the cache header.", "Finished. Tests pass."]
+    obeys: ["Added the cache header.\nDone: edge handler now sets cache-control", "Done: removed the unused router"]
+  # - Code in this directory MUST NOT use `require()`; use ES module imports.
+  - file: apps/edge/AGENTS.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["apps/edge/**"]
+    violates: ["apps/edge/src/index.ts: const router = require('./router');", "apps/edge/src/auth.ts: const jwt = require('jose');"]
+    obeys: ["apps/edge/src/index.ts: import { router } from './router';", "apps/edge/src/auth.ts: import * as jose from 'jose';"]
+  # - Handlers SHOULD be stateless.
+  - file: apps/edge/AGENTS.md
+    line: 9
+    status: uncheckable
+  # - A change in `src/` MUST be accompanied by a change in `test/`.
+  - file: apps/edge/AGENTS.md
+    line: 10
+    status: active
+    type: path_required_with
+    scope_paths: ["apps/edge/**"]
+    violates: [["apps/edge/src/index.ts"], ["apps/edge/src/auth.ts", "apps/edge/README.md"]]
+    obeys: [["apps/edge/src/index.ts", "apps/edge/test/index.test.ts"], ["apps/edge/README.md"]]
+  # - Test files MUST be named `<name>.test.ts`.
+  - file: .github/instructions/edge.instructions.md
+    line: 10
+    status: active
+    type: file_naming
+    scope_paths: ["apps/edge/**/*.ts"]
+    violates: ["apps/edge/test/index.spec.ts", "apps/edge/test/auth.spec.ts"]
+    obeys: ["apps/edge/test/index.test.ts", "apps/edge/test/auth-flow.test.ts"]
+  # - Handlers SHOULD NOT call `Date.now()`; use the injected clock.
+  - file: .github/instructions/edge.instructions.md
+    line: 11
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["apps/edge/**/*.ts"]
+    violates: ["apps/edge/src/handlers/ping.ts: const t = Date.now();", "apps/edge/src/handlers/ttl.ts:   if (Date.now() > exp) return;"]
+    obeys: ["apps/edge/src/handlers/ping.ts: const t = clock.now();", "apps/edge/src/handlers/ttl.ts:   if (clock.now() > exp) return;"]

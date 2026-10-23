@@ -1,0 +1,67 @@
+case: data-pipeline-numbered-reasons
+files: ["AGENTS.md"]
+rules:
+  # 1. Never use conda or mamba: the production image is built from `requirements.txt` only.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["conda install pandas", "mamba install pyarrow", "conda env create -f env.yml"]
+    obeys: ["pip install -r requirements.txt", "pip-compile requirements.in"]
+  # 2. Do not write to `data/raw/`: raw exports are immutable and are our only audit trail.
+  - file: AGENTS.md
+    line: 10
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["data/raw/2025-03-01.csv", "data/raw/README.txt"]
+    obeys: ["data/staging/2025-03-01.parquet", "src/tidewater/clean.py"]
+  # 3. Avoid `inplace=True` in pandas calls under `src/`, because it hides copies and makes the
+  - file: AGENTS.md
+    line: 11
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/tidewater/clean.py: df.drop(columns=[\"tmp\"], inplace=True)", "src/tidewater/transforms/units.py:     df.fillna(0, inplace=True)"]
+    obeys: ["src/tidewater/clean.py: df = df.drop(columns=[\"tmp\"])", "tests/test_clean.py: df.fillna(0, inplace=True)"]
+  # 4. When you change a transform in `src/tidewater/transforms/`, update or add a test in
+  - file: AGENTS.md
+    line: 13
+    status: active
+    type: path_required_with
+    scope_paths: ["**"]
+    violates: [["src/tidewater/transforms/units.py"], ["src/tidewater/transforms/units.py", "README.md"]]
+    obeys: [["src/tidewater/transforms/units.py", "tests/transforms/test_units.py"], ["src/tidewater/io/csv.py"]]
+  # 5. New dependencies need approval: every package ends up in the nightly image and we
+  - file: AGENTS.md
+    line: 15
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["pip install polars", "requirements.in: +duckdb"]
+    obeys: ["pip install -r requirements.txt", "pip-compile requirements.in"]
+  # 6. In your final message, list the commands you ran under a line `Commands run:`, because
+  - file: AGENTS.md
+    line: 17
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Refactored clean.py and updated the tests.", "All done."]
+    obeys: ["Refactored clean.py.\nCommands run:\n- pytest -q", "Commands run:\n- pip-compile requirements.in"]
+  # 7. Do not run `git commit` unless the task says so; releases are tagged by hand.
+  - file: AGENTS.md
+    line: 19
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"update units\"", "git commit -am \"clean up transforms\""]
+    obeys: ["git status", "git diff --stat"]
+  # 8. Keep transforms pure functions where you can; side effects belong in `src/tidewater/io/`.
+  - file: AGENTS.md
+    line: 20
+    status: uncheckable
+  # 9. Prefer vectorised operations over row loops.
+  - file: AGENTS.md
+    line: 21
+    status: uncheckable

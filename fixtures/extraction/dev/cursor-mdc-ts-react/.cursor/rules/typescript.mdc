@@ -1,0 +1,13 @@
+---
+description: TypeScript conventions
+globs: src/**/*.ts,src/**/*.tsx
+alwaysApply: false
+---
+
+# TypeScript
+
+- Do not use the `any` type. Use `unknown` or a real type.
+- No `console.log` in committed code; use `logger.debug`.
+- Name files in kebab-case, for example `build-status.ts`.
+- Prefer interfaces for public object shapes.
+- Export one main thing per file.

@@ -1,0 +1,95 @@
+case: nested-agents-docs-tools
+files: ["AGENTS.md", "docs/AGENTS.md", "tools/AGENTS.md"]
+rules:
+  # - Use uv for Python. Do not run `pip`.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install mkdocs-material", "pip install -r requirements.txt", "python3 -m pip install mkdocs"]
+    obeys: ["uv add mkdocs-material", "uv sync", "uv run mkdocs serve"]
+  # - Run `uv run mkdocs build --strict` before finishing any change under `docs/`.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["uv run mkdocs serve", "uv run mkdocs build", "uv run python tools/check_links.py"]
+    obeys: ["uv run mkdocs build --strict", "uv run mkdocs build --strict --clean"]
+  # - Do not commit.
+  - file: AGENTS.md
+    line: 10
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"docs: add release guide\"", "git commit -a -m wip"]
+    obeys: ["git status", "git diff docs"]
+  # - Write for readers who are new to the project.
+  - file: AGENTS.md
+    line: 11
+    status: uncheckable
+  # - Page file names are kebab-case, for example `docs/guides/release-process.md`.
+  - file: docs/AGENTS.md
+    line: 5
+    status: active
+    type: file_naming
+    scope_paths: ["docs/**"]
+    violates: ["docs/guides/Release_Process.md", "docs/guides/releaseProcess.md"]
+    obeys: ["docs/guides/release-process.md", "docs/guides/index.md"]
+  # - Never edit `docs/reference/` by hand; `tools/gen_reference.py` regenerates it.
+  - file: docs/AGENTS.md
+    line: 6
+    status: active
+    type: path_forbidden
+    scope_paths: ["docs/**"]
+    violates: ["docs/reference/cli.md", "docs/reference/api/index.md"]
+    obeys: ["docs/guides/release-process.md", "tools/gen_reference.py"]
+  # - Don't leave `TODO` markers in pages.
+  - file: docs/AGENTS.md
+    line: 7
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["docs/**"]
+    violates: ["docs/guides/release-process.md: TODO: describe the rollback", "docs/index.md: <!-- TODO add diagram -->"]
+    obeys: ["docs/guides/release-process.md: Rollbacks are described in the next section.", "docs/index.md: The roadmap lives on the wiki."]
+  # - Start every new page with a single H1 heading.
+  - file: docs/AGENTS.md
+    line: 8
+    status: active
+    type: content_required_added
+    scope_paths: ["docs/**"]
+    violates: ["docs/guides/release-process.md: This guide explains releases.", "docs/guides/backups.md: ## Overview"]
+    obeys: ["docs/guides/release-process.md: # Release process", "docs/assets/diagram.svg: <svg></svg>"]
+  # - Write in the second person.
+  - file: docs/AGENTS.md
+    line: 9
+    status: uncheckable
+  # - New scripts start with `# SPDX-License-Identifier: MIT`.
+  - file: tools/AGENTS.md
+    line: 6
+    status: active
+    type: content_required_added
+    scope_paths: ["tools/**"]
+    violates: ["tools/check_links.py: import sys", "tools/gen_nav.py: from pathlib import Path"]
+    obeys: ["tools/check_links.py: # SPDX-License-Identifier: MIT", "tools/README.md: # Tools"]
+  # - Script names use snake_case, for example `check_links.py`.
+  - file: tools/AGENTS.md
+    line: 7
+    status: active
+    type: file_naming
+    scope_paths: ["tools/**"]
+    violates: ["tools/CheckLinks.py", "tools/check-links.py"]
+    obeys: ["tools/check_links.py", "tools/gen_nav.py"]
+  # - Do not add dependencies for a single script; use the standard library.
+  - file: tools/AGENTS.md
+    line: 8
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["tools/**"]
+    violates: ["uv add rich", "pyproject.toml: +requests"]
+    obeys: ["uv sync", "uv run python tools/check_links.py"]
+  # - Every script that writes files needs a `--dry-run` flag.
+  - file: tools/AGENTS.md
+    line: 9
+    status: uncheckable

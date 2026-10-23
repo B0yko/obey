@@ -1,0 +1,115 @@
+case: claude-import-chain
+files: ["CLAUDE.md", "docs/agent/style.md", "docs/agent/testing.md", "docs/agent/release.md", "docs/agent/checklist.md"]
+rules:
+  # - Use Poetry for dependencies. Do not run `pip install`.
+  - file: CLAUDE.md
+    line: 9
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install httpx", "python -m pip install -e .", "pip3 install -r requirements.txt"]
+    obeys: ["poetry add httpx", "poetry install", "poetry run uvicorn orchard.app:app"]
+  # - Do not commit unless the task asks for it.
+  - file: CLAUDE.md
+    line: 10
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"wip\"", "git commit -a -m \"add retry policy\""]
+    obeys: ["git status", "git diff", "git stash list"]
+  # - Think about failure modes before writing retry logic.
+  - file: CLAUDE.md
+    line: 11
+    status: uncheckable
+  # - Keep the diff focused on the task.
+  - file: CLAUDE.md
+    line: 12
+    status: uncheckable
+  # - Do not use wildcard imports (`from x import *`).
+  - file: docs/agent/style.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/orchard/relay.py: from typing import *", "src/orchard/app.py: from .models import *"]
+    obeys: ["src/orchard/relay.py: from typing import Any", "src/orchard/app.py: from . import models"]
+  # - Do not silence ruff with `# noqa` comments. Fix the finding.
+  - file: docs/agent/style.md
+    line: 9
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/orchard/relay.py: import os  # noqa: F401", "src/orchard/app.py: x = compute()  # noqa"]
+    obeys: ["src/orchard/relay.py: import os", "src/orchard/app.py: x = compute()"]
+  # - Name modules in snake_case, for example `retry_policy.py`.
+  - file: docs/agent/style.md
+    line: 10
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["src/orchard/RetryPolicy.py", "src/orchard/retry-policy.py"]
+    obeys: ["src/orchard/retry_policy.py", "src/orchard/relay.py"]
+  # - Write comments that explain intent.
+  - file: docs/agent/style.md
+    line: 11
+    status: uncheckable
+  # - Run `poetry run pytest` before you finish any change to `src/`.
+  - file: docs/agent/testing.md
+    line: 8
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["poetry run ruff check .", "poetry install", "poetry run mypy src"]
+    obeys: ["poetry run pytest", "poetry run pytest -x tests/unit"]
+  # - When you change `src/orchard/`, add or update a test under `tests/`.
+  - file: docs/agent/testing.md
+    line: 9
+    status: active
+    type: path_required_with
+    scope_paths: ["**"]
+    violates: [["src/orchard/relay.py"], ["src/orchard/app.py", "CHANGELOG.md"]]
+    obeys: [["src/orchard/relay.py", "tests/test_relay.py"], ["README.md"]]
+  # - Name test files `test_<module>.py`.
+  - file: docs/agent/testing.md
+    line: 10
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["tests/relay_test.py", "tests/unit/relay_tests.py"]
+    obeys: ["tests/test_relay.py", "tests/unit/test_retry_policy.py"]
+  # - Tests must not call real network endpoints.
+  - file: docs/agent/testing.md
+    line: 11
+    status: uncheckable
+  # - Commit messages must follow Conventional Commits.
+  - file: docs/agent/release.md
+    line: 9
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Add retry policy", "updated docs", "wip: relay"]
+    obeys: ["feat: add retry policy", "fix(relay): drop empty payloads", "docs: explain backoff"]
+  # - Never run `git push`; releases are pushed by CI after review.
+  - file: docs/agent/release.md
+    line: 10
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin HEAD"]
+    obeys: ["git commit -m \"fix: drop empty payloads\"", "git fetch"]
+  # - Bump the version only when asked.
+  - file: docs/agent/release.md
+    line: 11
+    status: uncheckable
+  # - End your last message with `Checklist: done` or `Checklist: partial`.
+  - file: docs/agent/checklist.md
+    line: 13
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Retry policy added.", "All checks passed."]
+    obeys: ["Retry policy added.\nChecklist: done", "Checklist: partial"]
+  # - Mention any check you skipped.
+  - file: docs/agent/checklist.md
+    line: 14
+    status: uncheckable

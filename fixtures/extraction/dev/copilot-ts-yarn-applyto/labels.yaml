@@ -1,0 +1,59 @@
+case: copilot-ts-yarn-applyto
+files: [".github/copilot-instructions.md", ".github/instructions/frontend.instructions.md"]
+rules:
+  # 1. Use yarn. Running `npm install` or `pnpm add` creates conflicting lockfiles.
+  - file: .github/copilot-instructions.md
+    line: 7
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "pnpm add leaflet", "npm i -D vitest"]
+    obeys: ["yarn install", "yarn add leaflet", "yarn workspaces list"]
+  # 2. Do not add packages without approval.
+  - file: .github/copilot-instructions.md
+    line: 8
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["yarn add leaflet", "package.json: +maplibre-gl", "yarn add -D vitest"]
+    obeys: ["yarn install", "yarn build"]
+  # 3. Commit messages start with the ticket id, for example `MAP-214: fix tile cache`.
+  - file: .github/copilot-instructions.md
+    line: 9
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["fix tile cache", "map-214 fix tile cache", "MAP214: fix tile cache"]
+    obeys: ["MAP-214: fix tile cache", "MAP-9: add layer toggle"]
+  # 4. Don't commit changes unless you were asked to.
+  - file: .github/copilot-instructions.md
+    line: 10
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"MAP-214: fix tile cache\"", "git commit -a --amend"]
+    obeys: ["git status", "git diff"]
+  # 5. Be careful with anything that touches user data.
+  - file: .github/copilot-instructions.md
+    line: 11
+    status: uncheckable
+  # - Avoid the `any` type. Use `unknown` and narrow it.
+  - file: .github/instructions/frontend.instructions.md
+    line: 9
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["src/**/*.ts", "src/**/*.tsx"]
+    violates: ["src/map/layers.ts: export function load(id: any) {", "src/map/Layer.tsx: const props = raw as any;"]
+    obeys: ["src/map/layers.ts: export function load(id: string) {", "src/map/Layer.tsx: const props = raw as LayerProps;"]
+  # - Prefer named exports over default exports.
+  - file: .github/instructions/frontend.instructions.md
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["src/**/*.ts", "src/**/*.tsx"]
+    violates: ["src/map/Layer.tsx: export default function Layer() {", "src/map/layers.ts: export default load;"]
+    obeys: ["src/map/Layer.tsx: export function Layer() {", "src/map/layers.ts: export { load };"]
+  # - Components receive typed props.
+  - file: .github/instructions/frontend.instructions.md
+    line: 11
+    status: uncheckable

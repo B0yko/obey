@@ -1,0 +1,10 @@
+---
+description: FastAPI handler conventions
+globs: src/api/**/*.py
+alwaysApply: false
+---
+
+# API handlers
+
+- Keep route handlers thin.
+- Return typed response models.

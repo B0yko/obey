@@ -1,0 +1,87 @@
+case: gemini-nested-ts-npm
+files: ["GEMINI.md", "web/GEMINI.md", "server/GEMINI.md"]
+rules:
+  # * Use npm. Do not use yarn, pnpm or bun.
+  - file: GEMINI.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["yarn add dayjs", "pnpm install", "bun add dayjs"]
+    obeys: ["npm install dayjs", "npm ci", "npm test"]
+  # * `dist/` and `build/` hold build output. Never edit them by hand.
+  - file: GEMINI.md
+    line: 9
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["dist/app.js", "build/index.html", "web/dist/assets/main.css"]
+    obeys: ["web/src/App.vue", "server/src/index.ts"]
+  # * Run "npm test" when you are done with a change.
+  - file: GEMINI.md
+    line: 10
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["npm run lint", "npm run build", "npm install"]
+    obeys: ["npm test", "npm test --workspace web"]
+  # * Do not commit; the maintainer reviews the working tree first.
+  - file: GEMINI.md
+    line: 11
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"add week view\"", "git commit -a -m wip"]
+    obeys: ["git status", "git diff --staged"]
+  # * Keep explanations short.
+  - file: GEMINI.md
+    line: 12
+    status: uncheckable
+  # * Follow the existing folder structure when adding files.
+  - file: GEMINI.md
+    line: 13
+    status: uncheckable
+  # * Don't leave `console.log` calls in `src/`; use the `debug` helper.
+  - file: web/GEMINI.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["web/**"]
+    violates: ["web/src/App.vue: console.log(\"mounted\")", "web/src/lib/dates.ts:   console.log(range)"]
+    obeys: ["web/src/App.vue: debug(\"mounted\")", "web/src/lib/dates.ts:   const n = range.length;"]
+  # * New modules in `src/lib/` need a unit test in `tests/`.
+  - file: web/GEMINI.md
+    line: 9
+    status: active
+    type: path_required_with
+    scope_paths: ["web/**"]
+    violates: [["web/src/lib/dates.ts"], ["web/src/lib/colors.ts", "web/README.md"]]
+    obeys: [["web/src/lib/dates.ts", "web/tests/dates.test.ts"], ["web/src/App.vue"]]
+  # * Do not use `v-html` in templates.
+  - file: web/GEMINI.md
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["web/**"]
+    violates: ["web/src/components/Event.vue: <div v-html=\"event.description\"></div>", "web/src/App.vue:   <p v-html=\"banner\"></p>"]
+    obeys: ["web/src/components/Event.vue: <div>{{ event.description }}</div>", "web/src/App.vue:   <p>{{ banner }}</p>"]
+  # * Prefer small single-file components.
+  - file: web/GEMINI.md
+    line: 11
+    status: uncheckable
+  # * Add dependencies to `server/package.json` only after approval.
+  - file: server/GEMINI.md
+    line: 8
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["server/**"]
+    violates: ["npm install ical-generator --workspace server", "server/package.json: +ical-generator"]
+    obeys: ["npm ci", "npm test --workspace server"]
+  # * Do not log request bodies.
+  - file: server/GEMINI.md
+    line: 9
+    status: uncheckable
+  # * Handlers go in `src/handlers/`, one per file.
+  - file: server/GEMINI.md
+    line: 10
+    status: uncheckable

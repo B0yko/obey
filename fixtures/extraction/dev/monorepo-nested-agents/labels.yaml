@@ -1,0 +1,87 @@
+case: monorepo-nested-agents
+files: ["AGENTS.md", "packages/web/AGENTS.md", "packages/api/AGENTS.md"]
+rules:
+  # - Use pnpm. Never run `npm` or `yarn` commands.
+  - file: AGENTS.md
+    line: 12
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "yarn add zod", "npm run build --workspace packages/web"]
+    obeys: ["pnpm install", "pnpm add zod --filter api", "pnpm --filter web build"]
+  # - Commit messages use Conventional Commits with the package as scope, e.g. `fix(api): ...`.
+  - file: AGENTS.md
+    line: 13
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["fix: handle null token", "updated api", "feat add invoice table"]
+    obeys: ["fix(api): handle null token", "feat(web): add invoice table"]
+  # - Do not push; a maintainer pushes after review.
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push --force-with-lease origin fix/token"]
+    obeys: ["git commit -m \"fix(api): handle null token\"", "git status"]
+  # - Prefer small, reviewable changes.
+  - file: AGENTS.md
+    line: 15
+    status: uncheckable
+  # - Do not refactor across packages unless asked.
+  - file: AGENTS.md
+    line: 16
+    status: uncheckable
+  # - Name component files in PascalCase, for example `src/components/InvoiceTable.tsx`.
+  - file: packages/web/AGENTS.md
+    line: 5
+    status: active
+    type: file_naming
+    scope_paths: ["packages/web/**"]
+    violates: ["packages/web/src/components/invoice-table.tsx", "packages/web/src/components/invoiceTable.tsx"]
+    obeys: ["packages/web/src/components/InvoiceTable.tsx", "packages/web/src/components/ui/Button.tsx"]
+  # - Do not use `dangerouslySetInnerHTML`. Render text instead.
+  - file: packages/web/AGENTS.md
+    line: 6
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["packages/web/**"]
+    violates: ["packages/web/src/components/Note.tsx: <div dangerouslySetInnerHTML={{ __html: note.html }} />", "packages/web/src/components/Banner.tsx: return <p dangerouslySetInnerHTML={{ __html: text }} />;"]
+    obeys: ["packages/web/src/components/Note.tsx: <div>{note.text}</div>", "packages/web/src/components/Banner.tsx: return <p>{text}</p>;"]
+  # - Keep components small and presentational where possible.
+  - file: packages/web/AGENTS.md
+    line: 7
+    status: uncheckable
+  # - Co-locate styles with the component.
+  - file: packages/web/AGENTS.md
+    line: 8
+    status: uncheckable
+  # - Use the `logger` from `src/logger.ts`; do not use `console.log`.
+  - file: packages/api/AGENTS.md
+    line: 5
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["packages/api/**"]
+    violates: ["packages/api/src/routes/invoices.ts: console.log(\"created\", id);", "packages/api/src/db.ts:   console.log(rows.length)"]
+    obeys: ["packages/api/src/routes/invoices.ts: logger.info({ id }, \"created\");", "packages/api/src/db.ts:   const count = rows.length;"]
+  # - A change in `src/routes/` must come with a change in `test/`.
+  - file: packages/api/AGENTS.md
+    line: 6
+    status: active
+    type: path_required_with
+    scope_paths: ["packages/api/**"]
+    violates: [["packages/api/src/routes/invoices.ts"], ["packages/api/src/routes/users.ts", "packages/api/README.md"]]
+    obeys: [["packages/api/src/routes/invoices.ts", "packages/api/test/invoices.test.ts"], ["packages/api/src/db.ts"]]
+  # - Don't add runtime dependencies to this package without approval.
+  - file: packages/api/AGENTS.md
+    line: 7
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["packages/api/**"]
+    violates: ["pnpm add zod --filter api", "packages/api/package.json: +fastify-cors"]
+    obeys: ["pnpm install", "pnpm --filter api test"]
+  # - Validate request bodies with the existing schemas rather than ad-hoc checks.
+  - file: packages/api/AGENTS.md
+    line: 8
+    status: uncheckable

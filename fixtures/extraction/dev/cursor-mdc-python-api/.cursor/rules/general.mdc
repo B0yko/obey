@@ -1,0 +1,13 @@
+---
+description: Working agreements for the Nimbus Ferry service
+alwaysApply: true
+---
+
+Nimbus Ferry is a FastAPI service that books ferry tickets. Python 3.12, uv, Alembic.
+
+Use `uv add` instead of `pip install` when you need a new package.
+New dependencies need approval first.
+Every new Python file starts with `# SPDX-License-Identifier: Apache-2.0`.
+Use Conventional Commits for commit messages.
+Applied Alembic revisions in `alembic/versions/` must not be edited.
+Prefer clear names over explanatory comments.

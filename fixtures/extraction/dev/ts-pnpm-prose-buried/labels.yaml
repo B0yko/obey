@@ -1,0 +1,63 @@
+case: ts-pnpm-prose-buried
+files: ["AGENTS.md"]
+rules:
+  # Dependencies are managed with pnpm and only pnpm. The lockfile is `pnpm-lock.yaml`, and
+  - file: AGENTS.md
+    line: 10
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install zod", "yarn add zod", "npm i -D vitest", "cd src && npm ci"]
+    obeys: ["pnpm add zod", "pnpm install", "pnpm add -D vitest"]
+  # document. Never edit anything inside that directory by hand, because the next codegen run
+  - file: AGENTS.md
+    line: 15
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["src/generated/client.ts", "src/generated/models/invoice.ts"]
+    obeys: ["src/api/index.ts", "openapi/tallyforge.yaml"]
+  # wipes it. If the client looks wrong, fix the OpenAPI document or the codegen config and
+  - file: AGENTS.md
+    line: 16
+    status: uncheckable
+  # Do not introduce `any`; reach for `unknown` and narrow it, or write a proper type.
+  - file: AGENTS.md
+    line: 20
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/lib/format.ts: export function fmt(value: any) {", "src/pages/Invoices.tsx: const rows = data as any;"]
+    obeys: ["src/lib/format.ts: export function fmt(value: unknown) {", "src/pages/Invoices.tsx: const rows = data as InvoiceRow[];"]
+  # Likewise, `console.log` has no place in committed code. The app has a `logger` helper in
+  - file: AGENTS.md
+    line: 21
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/pages/Invoices.tsx: console.log(\"rows\", rows);", "src/lib/format.ts:   console.log(value)"]
+    obeys: ["src/pages/Invoices.tsx: logger.debug(\"rows\", rows);", "src/lib/format.ts: const label = `total: ${value}`;"]
+  # We review diffs quickly, so keep each change small and focused.
+  - file: AGENTS.md
+    line: 24
+    status: uncheckable
+  # Follow the patterns you see in neighbouring files instead of inventing new ones.
+  - file: AGENTS.md
+    line: 25
+    status: uncheckable
+  # Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:` and so on, with an
+  - file: AGENTS.md
+    line: 27
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["updated invoice table", "Fix totals", "WIP"]
+    obeys: ["feat: add invoice table", "fix(totals): round to two decimals", "chore: bump vite"]
+  # optional scope in parentheses). Pushing is handled by a human after review, so do not run
+  - file: AGENTS.md
+    line: 28
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin feature/totals"]
+    obeys: ["git commit -m \"fix: round totals\"", "git status", "git fetch origin"]

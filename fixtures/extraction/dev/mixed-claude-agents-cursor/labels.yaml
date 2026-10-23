@@ -1,0 +1,75 @@
+case: mixed-claude-agents-cursor
+files: ["CLAUDE.md", "AGENTS.md", ".cursor/rules/ui.mdc"]
+rules:
+  # - Never run `git push` yourself.
+  - file: CLAUDE.md
+    line: 10
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push -u origin feature/users"]
+    obeys: ["git commit -m \"feat: users table\"", "git status"]
+  # - Plan before you edit more than three files.
+  - file: CLAUDE.md
+    line: 11
+    status: uncheckable
+  # - Keep the context small by reading only the files you need.
+  - file: CLAUDE.md
+    line: 12
+    status: uncheckable
+  # - Use pnpm only. `npm` and `yarn` are forbidden here.
+  - file: AGENTS.md
+    line: 7
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "yarn add zustand", "npm ci"]
+    obeys: ["pnpm add zustand", "pnpm install", "pnpm dev"]
+  # - Do not use `@ts-ignore`.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/api/users.ts: // @ts-ignore", "src/components/UserTable.tsx:   // @ts-ignore legacy"]
+    obeys: ["src/api/users.ts: // @ts-expect-error see TD-12", "src/components/UserTable.tsx:   const rows = useUsers();"]
+  # - Run `pnpm typecheck` before finishing any change to `.ts` or `.tsx` files.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["pnpm lint", "pnpm build", "pnpm install"]
+    obeys: ["pnpm typecheck", "pnpm run typecheck"]
+  # - A change in `src/api/` needs a test in `tests/api/`.
+  - file: AGENTS.md
+    line: 10
+    status: active
+    type: path_required_with
+    scope_paths: ["**"]
+    violates: [["src/api/users.ts"], ["src/api/roles.ts", "README.md"]]
+    obeys: [["src/api/users.ts", "tests/api/users.test.ts"], ["src/components/UserTable.tsx"]]
+  # - Write short, descriptive commit messages.
+  - file: AGENTS.md
+    line: 11
+    status: uncheckable
+  # - Component files use PascalCase names (`UserTable.tsx`).
+  - file: .cursor/rules/ui.mdc
+    line: 9
+    status: active
+    type: file_naming
+    scope_paths: ["src/components/**/*.tsx"]
+    violates: ["src/components/user-table.tsx", "src/components/userTable.tsx"]
+    obeys: ["src/components/UserTable.tsx", "src/components/forms/LoginForm.tsx"]
+  # - Do not add inline `style={{ ... }}` props; use the CSS module next to the component.
+  - file: .cursor/rules/ui.mdc
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["src/components/**/*.tsx"]
+    violates: ["src/components/UserTable.tsx: <td style={{ width: 120 }}>{name}</td>", "src/components/forms/LoginForm.tsx:   <form style={{ margin: 0 }}>"]
+    obeys: ["src/components/UserTable.tsx: <td className={styles.name}>{name}</td>", "src/components/forms/LoginForm.tsx:   <form className={styles.form}>"]
+  # - Keep components under 200 lines.
+  - file: .cursor/rules/ui.mdc
+    line: 11
+    status: uncheckable

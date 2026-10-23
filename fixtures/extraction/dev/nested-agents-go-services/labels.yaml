@@ -1,0 +1,83 @@
+case: nested-agents-go-services
+files: ["AGENTS.md", "services/billing/AGENTS.md", "services/notifications/AGENTS.md"]
+rules:
+  # - Do not commit unless asked.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"add refund handler\"", "git commit --amend --no-edit"]
+    obeys: ["git status", "git diff services/billing"]
+  # - Do not push.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin refunds"]
+    obeys: ["git status", "git log -5 --oneline"]
+  # - Run `go vet ./...` from the repo root before finishing.
+  - file: AGENTS.md
+    line: 10
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["go build ./...", "go test ./services/billing/...", "gofmt -l ."]
+    obeys: ["go vet ./...", "go vet ./... && go build ./..."]
+  # - Shared code in `pkg/` must stay free of service-specific logic.
+  - file: AGENTS.md
+    line: 11
+    status: uncheckable
+  # - Never use `float64` for amounts.
+  - file: services/billing/AGENTS.md
+    line: 5
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["services/billing/**"]
+    violates: ["services/billing/internal/invoice/total.go: var amount float64", "services/billing/internal/payment/charge.go: func Charge(amount float64) error {"]
+    obeys: ["services/billing/internal/invoice/total.go: var amount int64", "services/billing/internal/payment/charge.go: func Charge(amountCents int64) error {"]
+  # - Use `pkg/logx` instead of the standard `log` package.
+  - file: services/billing/AGENTS.md
+    line: 6
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["services/billing/**"]
+    violates: ["services/billing/internal/invoice/total.go: log.Printf(\"total %d\", t)", "services/billing/cmd/billing/main.go: log.Fatal(err)"]
+    obeys: ["services/billing/internal/invoice/total.go: logx.Info(ctx, \"total computed\")", "services/billing/internal/invoice/total.go: logx.Warn(ctx, \"empty invoice\")"]
+  # - Name migration files `NNNN_description.sql`, for example `0004_add_refunds.sql`.
+  - file: services/billing/AGENTS.md
+    line: 7
+    status: active
+    type: file_naming
+    scope_paths: ["services/billing/**"]
+    violates: ["services/billing/migrations/add_refunds.sql", "services/billing/migrations/4_add_refunds.sql"]
+    obeys: ["services/billing/migrations/0004_add_refunds.sql", "services/billing/migrations/0012_drop_legacy_fees.sql"]
+  # - Prefer idempotent handlers.
+  - file: services/billing/AGENTS.md
+    line: 8
+    status: uncheckable
+  # - Do not add new queue or email libraries without approval.
+  - file: services/notifications/AGENTS.md
+    line: 5
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["services/notifications/**"]
+    violates: ["go get github.com/segmentio/kafka-go", "services/notifications/go.mod: +github.com/sendgrid/sendgrid-go"]
+    obeys: ["go mod tidy", "go build ./..."]
+  # - Never edit files under `internal/pb/`; they are generated from the protobuf definitions.
+  - file: services/notifications/AGENTS.md
+    line: 6
+    status: active
+    type: path_forbidden
+    scope_paths: ["services/notifications/**"]
+    violates: ["services/notifications/internal/pb/event.pb.go", "services/notifications/internal/pb/mail.pb.go"]
+    obeys: ["services/notifications/internal/queue/consumer.go", "services/notifications/templates/welcome.txt"]
+  # - Keep message text in `templates/`, not in Go files.
+  - file: services/notifications/AGENTS.md
+    line: 7
+    status: uncheckable
+  # - Handler tests should use fake clocks.
+  - file: services/notifications/AGENTS.md
+    line: 8
+    status: uncheckable

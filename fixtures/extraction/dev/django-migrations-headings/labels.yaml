@@ -1,0 +1,63 @@
+case: django-migrations-headings
+files: ["AGENTS.md"]
+rules:
+  # - Add packages with `poetry add`; do not call `pip install` or `pip3 install`.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install requests", "pip3 install django-filter"]
+    obeys: ["poetry add django-filter", "poetry install", "poetry run python manage.py test"]
+  # - Merged migrations should not be edited.
+  - file: AGENTS.md
+    line: 13
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["shop/migrations/0001_initial.py", "shop/migrations/0002_add_sku.py", "accounts/migrations/0001_initial.py"]
+    obeys: ["shop/models.py", "shop/views.py"]
+  # - Changes to any `models.py` must come with a new file in that app's `migrations/` folder.
+  - file: AGENTS.md
+    line: 15
+    status: active
+    type: path_required_with
+    scope_paths: ["**"]
+    violates: [["shop/models.py"], ["accounts/models.py", "accounts/views.py"]]
+    obeys: [["shop/models.py", "shop/migrations/0003_order_notes.py"], ["shop/views.py"]]
+  # - Raw SQL is discouraged: do not use `.raw()` or `.extra()` on querysets.
+  - file: AGENTS.md
+    line: 16
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["shop/views.py: rows = Order.objects.raw(\"SELECT * FROM shop_order\")", "shop/queries.py: qs = qs.extra(where=['total > 100'])"]
+    obeys: ["shop/views.py: rows = Order.objects.filter(status=\"open\")", "shop/queries.py: qs = qs.filter(total__gt=100)"]
+  # - After changing Python files, run `poetry run python manage.py test`.
+  - file: AGENTS.md
+    line: 20
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["poetry run python manage.py check", "poetry run flake8", "poetry install"]
+    obeys: ["poetry run python manage.py test", "poetry run python manage.py test shop"]
+  # - Your final message must contain a line starting with `Tests:` that names the apps you tested.
+  - file: AGENTS.md
+    line: 21
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Added the discount field and its migration.", "Done."]
+    obeys: ["Added the discount field.\nTests: shop (ok)", "Refactored checkout.\nTests: shop, payments (ok)"]
+  # - Keep views thin and move business logic into `services.py`.
+  - file: AGENTS.md
+    line: 22
+    status: uncheckable
+  # - Docstrings should explain why, not what.
+  - file: AGENTS.md
+    line: 23
+    status: uncheckable
+  # - Admin customisations should stay minimal.
+  - file: AGENTS.md
+    line: 24
+    status: uncheckable

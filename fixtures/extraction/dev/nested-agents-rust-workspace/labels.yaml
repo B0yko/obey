@@ -1,0 +1,79 @@
+case: nested-agents-rust-workspace
+files: ["AGENTS.md", "crates/core/AGENTS.md"]
+rules:
+  # - Use Cargo for everything; do not call `rustc` directly.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["rustc src/main.rs", "rustc --edition 2021 crates/core/src/lib.rs"]
+    obeys: ["cargo build", "cargo check -p core", "cargo test"]
+  # - `Cargo.lock` is maintained by Cargo. Do not edit it by hand.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["Cargo.lock", "crates/cli/Cargo.lock"]
+    obeys: ["Cargo.toml", "crates/core/src/lib.rs"]
+  # - Commit only when asked.
+  - file: AGENTS.md
+    line: 10
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"add column index\"", "git commit -am \"wip\""]
+    obeys: ["git status", "git diff --stat"]
+  # - Run `cargo test --workspace` before finishing.
+  - file: AGENTS.md
+    line: 11
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["cargo build --workspace", "cargo clippy --workspace", "cargo fmt"]
+    obeys: ["cargo test --workspace", "cargo test --workspace --release"]
+  # - Keep the public API of `crates/core` stable.
+  - file: AGENTS.md
+    line: 12
+    status: uncheckable
+  # - Benchmarks, when you add them, must be reproducible.
+  - file: AGENTS.md
+    line: 13
+    status: uncheckable
+  # - No `unsafe` in this crate.
+  - file: crates/core/AGENTS.md
+    line: 6
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["crates/core/**"]
+    violates: ["crates/core/src/mmap.rs:     unsafe { Mmap::map(&file) }", "crates/core/src/page.rs: unsafe fn read_raw(ptr: *const u8) -> u8 {"]
+    obeys: ["crates/core/src/mmap.rs:     let map = read_all(&file)?;", "crates/core/src/page.rs: fn read(buf: &[u8]) -> u8 {"]
+  # - No `println!`, `eprintln!` or `dbg!` in this crate; use `tracing`.
+  - file: crates/core/AGENTS.md
+    line: 7
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["crates/core/**"]
+    violates: ["crates/core/src/page.rs:     println!(\"page {}\", id);", "crates/core/src/index.rs:     dbg!(&keys);"]
+    obeys: ["crates/core/src/page.rs:     tracing::debug!(\"page {}\", id);", "crates/core/src/page.rs:     let next = id + 1;"]
+  # - New `.rs` files start with the line `// Copyright (c) Quarry contributors`.
+  - file: crates/core/AGENTS.md
+    line: 8
+    status: active
+    type: content_required_added
+    scope_paths: ["crates/core/**"]
+    violates: ["crates/core/src/bloom.rs: use std::hash::Hasher;", "crates/core/src/codec/rle.rs: pub fn encode() {}"]
+    obeys: ["crates/core/src/bloom.rs: // Copyright (c) Quarry contributors", "crates/core/README.md: # crates/core"]
+  # - Do not add dependencies to this crate without approval.
+  - file: crates/core/AGENTS.md
+    line: 9
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["crates/core/**"]
+    violates: ["cargo add -p core memmap2", "crates/core/Cargo.toml: +crossbeam"]
+    obeys: ["cargo build -p core", "cargo test -p core"]
+  # - Prefer iterators over index loops.
+  - file: crates/core/AGENTS.md
+    line: 10
+    status: uncheckable

@@ -1,0 +1,87 @@
+case: docs-site-dodont
+files: ["AGENTS.md"]
+rules:
+  # - Use Yarn for every command.
+  - file: AGENTS.md
+    line: 17
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "pnpm add mermaid", "npx docusaurus start"]
+    obeys: ["yarn install", "yarn add mermaid", "yarn build"]
+  # - Put new guides in `docs/guides/` and name the file in kebab-case, for example
+  - file: AGENTS.md
+    line: 18
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["docs/guides/Getting_Started.md", "docs/guides/gettingStarted.md"]
+    obeys: ["docs/guides/getting-started.md", "docs/guides/install-on-linux.md"]
+  # - Begin every new page with front matter that includes a `title:` field.
+  - file: AGENTS.md
+    line: 20
+    status: active
+    type: content_required_added
+    scope_paths: ["**"]
+    violates: ["docs/guides/install.md: # Installing Ironwood", "docs/reference/flags.md: The flags are listed below."]
+    obeys: ["docs/guides/install.md: title: Installing Ironwood", "sidebars.js: module.exports = {};"]
+  # - Run `yarn build` before you finish a docs change, so broken links are caught.
+  - file: AGENTS.md
+    line: 21
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["yarn start", "yarn install", "yarn gen:api"]
+    obeys: ["yarn build", "yarn build --locale en"]
+  # - Start commit messages with `docs:`, `build:` or `chore:`.
+  - file: AGENTS.md
+    line: 22
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Update install page", "fix: typo", "added mermaid support"]
+    obeys: ["docs: add getting started guide", "build: bump docusaurus", "chore: tidy sidebar"]
+  # - Use sentence case for headings.
+  - file: AGENTS.md
+    line: 23
+    status: uncheckable
+  # - Link to other pages with relative paths.
+  - file: AGENTS.md
+    line: 24
+    status: uncheckable
+  # - Don't use npm or pnpm. The lockfile is `yarn.lock`.
+  - file: AGENTS.md
+    line: 28
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm ci", "pnpm install", "npm i mermaid"]
+    obeys: ["yarn install --immutable", "yarn add -D prettier"]
+  # - Don't edit anything in `docs/api/`; it is regenerated on every build.
+  - file: AGENTS.md
+    line: 29
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["docs/api/index.md", "docs/api/commands/run.md"]
+    obeys: ["docs/guides/install.md", "sidebars.js"]
+  # - Don't leave `TODO` or `FIXME` markers in published pages.
+  - file: AGENTS.md
+    line: 30
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["docs/guides/install.md: TODO: document the Windows installer", "docs/reference/flags.md: FIXME check default value"]
+    obeys: ["docs/guides/install.md: The Windows installer is documented below.", "README.md: TODO: add a contributing section"]
+  # - Don't write "simply" or "just" in instructions.
+  - file: AGENTS.md
+    line: 31
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["docs/guides/install.md: Simply run the installer.", "docs/guides/config.md: Just open the settings file."]
+    obeys: ["docs/guides/install.md: Run the installer.", "docs/guides/config.md: Open the settings file."]
+  # - Don't paste screenshots larger than 200 KB.
+  - file: AGENTS.md
+    line: 32
+    status: uncheckable

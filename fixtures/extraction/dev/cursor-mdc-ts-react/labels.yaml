@@ -1,0 +1,79 @@
+case: cursor-mdc-ts-react
+files: [".cursor/rules/general.mdc", ".cursor/rules/typescript.mdc", ".cursor/rules/testing.mdc"]
+rules:
+  # - Use pnpm for every package command; never run `npm` or `yarn`.
+  - file: .cursor/rules/general.mdc
+    line: 10
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "yarn add recharts", "npm i -D vitest"]
+    obeys: ["pnpm add recharts", "pnpm install", "pnpm test"]
+  # - Do not push to any remote.
+  - file: .cursor/rules/general.mdc
+    line: 11
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin main"]
+    obeys: ["git commit -m \"feat: add pipeline card\"", "git status"]
+  # - Prefer small, focused changes.
+  - file: .cursor/rules/general.mdc
+    line: 12
+    status: uncheckable
+  # - Mention in your reply anything you could not verify.
+  - file: .cursor/rules/general.mdc
+    line: 13
+    status: uncheckable
+  # - Do not use the `any` type. Use `unknown` or a real type.
+  - file: .cursor/rules/typescript.mdc
+    line: 9
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["src/**/*.ts", "src/**/*.tsx"]
+    violates: ["src/lib/status.ts: export function label(s: any) {", "src/components/pipeline-card.tsx: const rows = props.rows as any;"]
+    obeys: ["src/lib/status.ts: export function label(s: unknown) {", "src/components/pipeline-card.tsx: const rows = props.rows as Row[];"]
+  # - No `console.log` in committed code; use `logger.debug`.
+  - file: .cursor/rules/typescript.mdc
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["src/**/*.ts", "src/**/*.tsx"]
+    violates: ["src/lib/status.ts: console.log(\"status\", s);", "src/components/pipeline-card.tsx:   console.log(rows)"]
+    obeys: ["src/lib/status.ts: logger.debug(\"status\", s);", "src/components/pipeline-card.tsx:   const n = rows.length;"]
+  # - Name files in kebab-case, for example `build-status.ts`.
+  - file: .cursor/rules/typescript.mdc
+    line: 11
+    status: active
+    type: file_naming
+    scope_paths: ["src/**/*.ts", "src/**/*.tsx"]
+    violates: ["src/lib/BuildStatus.ts", "src/lib/build_status.ts"]
+    obeys: ["src/lib/build-status.ts", "src/components/pipeline-card.tsx"]
+  # - Prefer interfaces for public object shapes.
+  - file: .cursor/rules/typescript.mdc
+    line: 12
+    status: uncheckable
+  # - Export one main thing per file.
+  - file: .cursor/rules/typescript.mdc
+    line: 13
+    status: uncheckable
+  # - Run `pnpm test` after you edit a test file.
+  - file: .cursor/rules/testing.mdc
+    line: 9
+    status: active
+    type: command_required
+    scope_paths: ["**/*.test.ts", "**/*.test.tsx"]
+    violates: ["pnpm lint", "pnpm build", "pnpm install"]
+    obeys: ["pnpm test", "pnpm test -- --run"]
+  # - Whenever you change a file in `src/lib/`, add or update a test in `tests/`.
+  - file: .cursor/rules/testing.mdc
+    line: 10
+    status: active
+    type: path_required_with
+    scope_paths: ["**/*.test.ts", "**/*.test.tsx"]
+    violates: [["src/lib/status.ts"], ["src/lib/colors.ts", "README.md"]]
+    obeys: [["src/lib/status.ts", "tests/status.test.ts"], ["src/components/pipeline-card.tsx"]]
+  # - Tests must be deterministic: no real timers and no network.
+  - file: .cursor/rules/testing.mdc
+    line: 11
+    status: uncheckable

@@ -1,0 +1,67 @@
+case: py-uv-terse-bullets
+files: ["AGENTS.md"]
+rules:
+  # - Use uv for installs and runs; never pip, poetry or pipenv.
+  - file: AGENTS.md
+    line: 13
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install requests", "python -m pip install -r requirements.txt", "poetry add httpx", "pipenv install"]
+    obeys: ["uv add httpx", "uv sync", "uv run pytest"]
+  # - No `print()` in `src/`; use `logging`.
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/fernwatch/alerts.py: print(f\"alert {name}\")", "src/fernwatch/feed.py:     print(payload)"]
+    obeys: ["src/fernwatch/alerts.py: log.info(\"alert %s\", name)", "scripts/replay.py: print(row)"]
+  # - No `# type: ignore`. Fix the type instead.
+  - file: AGENTS.md
+    line: 15
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/fernwatch/feed.py: data = json.loads(raw)  # type: ignore", "src/fernwatch/models.py: import yaml  # type: ignore[import-untyped]"]
+    obeys: ["src/fernwatch/feed.py: data = cast(dict[str, Any], json.loads(raw))", "src/fernwatch/models.py: import yaml"]
+  # - Run `uv run pytest` before finishing.
+  - file: AGENTS.md
+    line: 16
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["uv run ruff check .", "uv run mypy src", "git status"]
+    obeys: ["uv run pytest", "uv run pytest -q tests/unit"]
+  # - Ask before adding a dependency.
+  - file: AGENTS.md
+    line: 17
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["uv add httpx", "pyproject.toml: +requests", "uv pip install pandas"]
+    obeys: ["uv sync", "uv lock"]
+  # - Do not commit. Leave changes in the working tree.
+  - file: AGENTS.md
+    line: 18
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"wip\"", "git commit -am \"fix alerts\""]
+    obeys: ["git status", "git diff", "git add src/fernwatch/alerts.py"]
+  # - Keep functions short and single-purpose.
+  - file: AGENTS.md
+    line: 19
+    status: uncheckable
+  # - Match the style of nearby code.
+  - file: AGENTS.md
+    line: 20
+    status: uncheckable
+  # - Prefer plain functions over class hierarchies.
+  - file: AGENTS.md
+    line: 21
+    status: uncheckable
+  # - Keep replies brief.
+  - file: AGENTS.md
+    line: 22
+    status: uncheckable

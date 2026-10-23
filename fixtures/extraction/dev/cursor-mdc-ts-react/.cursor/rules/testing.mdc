@@ -1,0 +1,11 @@
+---
+description: Test conventions
+globs: ["**/*.test.ts", "**/*.test.tsx"]
+alwaysApply: false
+---
+
+# Tests
+
+- Run `pnpm test` after you edit a test file.
+- Whenever you change a file in `src/lib/`, add or update a test in `tests/`.
+- Tests must be deterministic: no real timers and no network.

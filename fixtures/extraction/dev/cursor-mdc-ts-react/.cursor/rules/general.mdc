@@ -1,0 +1,13 @@
+---
+description: Project-wide working agreements for Brambleforge
+alwaysApply: true
+---
+
+# Working agreements
+
+Brambleforge is a React dashboard for monitoring build pipelines.
+
+- Use pnpm for every package command; never run `npm` or `yarn`.
+- Do not push to any remote.
+- Prefer small, focused changes.
+- Mention in your reply anything you could not verify.

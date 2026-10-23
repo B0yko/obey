@@ -1,0 +1,71 @@
+case: mixed-agents-gemini-copilot
+files: ["AGENTS.md", "GEMINI.md", ".github/copilot-instructions.md"]
+rules:
+  # - Use Poetry; do not run `pip install`.
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install weasyprint", "pip install -r requirements.txt", "python -m pip install django"]
+    obeys: ["poetry add weasyprint", "poetry install", "poetry run pytest"]
+  # - `templates/pdf/compiled/` is build output. Do not edit it.
+  - file: AGENTS.md
+    line: 15
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["templates/pdf/compiled/invoice.html", "templates/pdf/compiled/css/main.css"]
+    obeys: ["templates/pdf/src/invoice.html", "billing/views.py"]
+  # - Run `poetry run pytest` before finishing.
+  - file: AGENTS.md
+    line: 16
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["poetry run flake8", "poetry install", "poetry run python manage.py check"]
+    obeys: ["poetry run pytest", "poetry run pytest billing/tests"]
+  # - Put new invoice code in `billing/` and keep views thin.
+  - file: AGENTS.md
+    line: 17
+    status: uncheckable
+  # - Do not use `print()` in `billing/`.
+  - file: GEMINI.md
+    line: 5
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["billing/services.py: print(\"rendered\", invoice.id)", "billing/views.py:     print(request.data)"]
+    obeys: ["billing/services.py: logger.info(\"rendered %s\", invoice.id)", "scripts/dump.py: print(rows)"]
+  # - Commit messages look like `type(scope): summary` with a lower-case type.
+  - file: GEMINI.md
+    line: 6
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Feat(api): add refunds", "add refunds", "fix billing totals"]
+    obeys: ["feat(api): add refunds", "fix(billing): round totals", "docs: update readme"]
+  # - Keep answers short.
+  - file: GEMINI.md
+    line: 7
+    status: uncheckable
+  # This repository uses Poetry. Do not call `pip install`; use `poetry add` instead.
+  - file: .github/copilot-instructions.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install gunicorn", "pip3 install -r requirements.txt"]
+    obeys: ["poetry add gunicorn", "poetry lock"]
+  # Never push to the remote.
+  - file: .github/copilot-instructions.md
+    line: 9
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin main"]
+    obeys: ["git commit -m \"fix: totals\"", "git log --oneline"]
+  # Prefer the Django ORM over raw SQL.
+  - file: .github/copilot-instructions.md
+    line: 10
+    status: uncheckable

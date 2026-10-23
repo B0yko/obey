@@ -1,0 +1,83 @@
+case: cursor-mdc-python-api
+files: [".cursor/rules/general.mdc", ".cursor/rules/python.mdc", ".cursor/rules/api.mdc"]
+rules:
+  # Use `uv add` instead of `pip install` when you need a new package.
+  - file: .cursor/rules/general.mdc
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install httpx", "python -m pip install -r requirements.txt", "pip3 install pydantic"]
+    obeys: ["uv add httpx", "uv sync", "uv run alembic upgrade head"]
+  # New dependencies need approval first.
+  - file: .cursor/rules/general.mdc
+    line: 9
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["uv add httpx", "pyproject.toml: +sqlmodel", "uv pip install redis"]
+    obeys: ["uv sync", "uv run pytest"]
+  # Every new Python file starts with `# SPDX-License-Identifier: Apache-2.0`.
+  - file: .cursor/rules/general.mdc
+    line: 10
+    status: active
+    type: content_required_added
+    scope_paths: ["**"]
+    violates: ["src/api/tickets.py: from fastapi import APIRouter", "scripts/backfill.py: import asyncio"]
+    obeys: ["src/api/tickets.py: # SPDX-License-Identifier: Apache-2.0", "README.md: # Nimbus Ferry"]
+  # Use Conventional Commits for commit messages.
+  - file: .cursor/rules/general.mdc
+    line: 11
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Add ticket route", "update docs", "fixes"]
+    obeys: ["feat: add ticket route", "fix(api): reject empty passenger lists", "docs: describe booking flow"]
+  # Applied Alembic revisions in `alembic/versions/` must not be edited.
+  - file: .cursor/rules/general.mdc
+    line: 12
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["alembic/versions/20240101_init.py", "alembic/versions/20240215_add_tickets.py"]
+    obeys: ["src/api/tickets.py", "alembic/env.py"]
+  # Prefer clear names over explanatory comments.
+  - file: .cursor/rules/general.mdc
+    line: 13
+    status: uncheckable
+  # - Prefer `logging` over `print` in `src/`.
+  - file: .cursor/rules/python.mdc
+    line: 9
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.py"]
+    violates: ["src/ferry/booking.py: print(\"booked\", ticket_id)", "src/api/tickets.py:     print(payload)"]
+    obeys: ["src/ferry/booking.py: log.info(\"booked %s\", ticket_id)", "tests/test_booking.py: print(ticket_id)"]
+  # - Avoid `# noqa`; fix the lint error instead.
+  - file: .cursor/rules/python.mdc
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.py"]
+    violates: ["src/ferry/booking.py: import os  # noqa: F401", "src/api/tickets.py: from .deps import *  # noqa"]
+    obeys: ["src/ferry/booking.py: import os", "src/api/tickets.py: from .deps import get_db"]
+  # - Use `pathlib` instead of `os.path` in new code.
+  - file: .cursor/rules/python.mdc
+    line: 11
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.py"]
+    violates: ["src/ferry/tickets.py: p = os.path.join(base, name)", "src/ferry/io.py: if os.path.exists(p):"]
+    obeys: ["src/ferry/tickets.py: p = base / name", "src/ferry/io.py: if p.exists():"]
+  # - Use type hints on public functions.
+  - file: .cursor/rules/python.mdc
+    line: 12
+    status: uncheckable
+  # - Keep route handlers thin.
+  - file: .cursor/rules/api.mdc
+    line: 9
+    status: uncheckable
+  # - Return typed response models.
+  - file: .cursor/rules/api.mdc
+    line: 10
+    status: uncheckable

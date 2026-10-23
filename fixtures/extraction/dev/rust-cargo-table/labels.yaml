@@ -1,0 +1,63 @@
+case: rust-cargo-table
+files: ["AGENTS.md"]
+rules:
+  # | Errors | Never call `.unwrap()` in `src/`. Return `Result` and use `?`. |
+  - file: AGENTS.md
+    line: 19
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/parser.rs:     let doc = read(path).unwrap();", "src/lexer.rs:     let tok = next().unwrap();"]
+    obeys: ["src/parser.rs:     let doc = read(path)?;", "tests/parse.rs:     let doc = read(path).unwrap();"]
+  # | Unsafe | Do not write `unsafe` blocks. |
+  - file: AGENTS.md
+    line: 20
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/ffi.rs:     unsafe { libc::free(ptr) }", "crates/cli/src/main.rs: unsafe impl Send for Handle {}"]
+    obeys: ["src/ffi.rs:     let owned = Box::new(value);", "src/lexer.rs: let tokens = Vec::new();"]
+  # | Dependencies | Only `serde`, `thiserror` and `anyhow` may be added to `Cargo.toml` without approval. |
+  - file: AGENTS.md
+    line: 21
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["cargo add tokio", "Cargo.toml: +reqwest", "cargo add serde_json"]
+    obeys: ["cargo add serde --features derive", "Cargo.toml: +thiserror", "cargo build"]
+  # | Headers | New `.rs` files start with `// SPDX-License-Identifier: MIT` on the first line. |
+  - file: AGENTS.md
+    line: 22
+    status: active
+    type: content_required_added
+    scope_paths: ["**"]
+    violates: ["src/lexer.rs: use std::fmt;", "crates/cli/src/args.rs: pub struct Args;"]
+    obeys: ["src/lexer.rs: // SPDX-License-Identifier: MIT", "scripts/check.sh: #!/bin/sh"]
+  # | Lint | Run `cargo clippy --all-targets -- -D warnings` after editing Rust code. |
+  - file: AGENTS.md
+    line: 23
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["cargo clippy --all-targets", "cargo build", "cargo fmt"]
+    obeys: ["cargo clippy --all-targets -- -D warnings", "cargo clippy -- -D warnings"]
+  # | Size | Keep modules under about 400 lines. |
+  - file: AGENTS.md
+    line: 24
+    status: uncheckable
+  # | Naming | Prefer descriptive names over abbreviations. |
+  - file: AGENTS.md
+    line: 25
+    status: uncheckable
+  # | Docs | Public items should have doc comments. |
+  - file: AGENTS.md
+    line: 26
+    status: uncheckable
+  # | Reply | End your final message with a line starting `Summary:` followed by one sentence. |
+  - file: AGENTS.md
+    line: 27
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Fixed the lexer bug.", "Done. All crates build."]
+    obeys: ["Fixed the lexer bug.\nSummary: lexer now handles escaped quotes", "Summary: added the manifest validator"]

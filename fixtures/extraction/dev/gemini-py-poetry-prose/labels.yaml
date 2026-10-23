@@ -1,0 +1,55 @@
+case: gemini-py-poetry-prose
+files: ["GEMINI.md"]
+rules:
+  # Packages are installed and locked with Poetry, so do not use `pip install` in this repository,
+  - file: GEMINI.md
+    line: 9
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install feedgen", "python -m pip install -e .", "pip install -r requirements.txt"]
+    obeys: ["poetry add feedgen", "poetry install", "poetry run pytest"]
+  # date. You may add test and lint tooling (`pytest`, `pytest-cov` and `ruff`) when you need it,
+  - file: GEMINI.md
+    line: 11
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["poetry add feedgen", "pyproject.toml: +mutagen"]
+    obeys: ["poetry add --group dev pytest-cov", "pyproject.toml: +ruff", "poetry add --group dev pytest"]
+  # Library code must not call `print()`; use the standard `logging` module so that the CLI can
+  - file: GEMINI.md
+    line: 15
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/pinecast/feed.py: print(\"wrote\", path)", "src/pinecast/cli.py:     print(episode.title)"]
+    obeys: ["src/pinecast/feed.py: log.info(\"wrote %s\", path)", "tests/test_feed.py: print(feed)"]
+  # control verbosity. Every new module under `src/pinecast/` should start with
+  - file: GEMINI.md
+    line: 16
+    status: active
+    type: content_required_added
+    scope_paths: ["**"]
+    violates: ["src/pinecast/artwork.py: import hashlib", "src/pinecast/tags.py: from pathlib import Path"]
+    obeys: ["src/pinecast/artwork.py: from __future__ import annotations", "tests/test_tags.py: import pytest"]
+  # When you are done, do not use emojis in your final message. The maintainers read these in a
+  - file: GEMINI.md
+    line: 20
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["All done! 🎉", "Fixed the feed generator ✅"]
+    obeys: ["All done.", "Fixed the feed generator."]
+  # plain terminal. Commit subjects must start with a capital letter and must not end with a
+  - file: GEMINI.md
+    line: 21
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["fix feed parsing", "Fix feed parsing.", "added artwork"]
+    obeys: ["Fix feed parsing", "Add episode artwork support"]
+  # Try to leave the code a little tidier than you found it, and avoid clever one-liners.
+  - file: GEMINI.md
+    line: 24
+    status: uncheckable

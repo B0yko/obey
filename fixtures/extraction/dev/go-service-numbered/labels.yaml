@@ -1,0 +1,67 @@
+case: go-service-numbered
+files: ["AGENTS.md"]
+rules:
+  # 1. Run `go vet ./...` after changing any `.go` file.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["go build ./...", "gofmt -l .", "go test ./..."]
+    obeys: ["go vet ./...", "go vet ./internal/..."]
+  # 2. Do not add modules to `go.mod` without approval.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["go get github.com/spf13/viper", "go.mod: +github.com/google/uuid"]
+    obeys: ["go mod tidy", "go build ./...", "go mod vendor"]
+  # 3. Use the standard library first.
+  - file: AGENTS.md
+    line: 10
+    status: uncheckable
+  # 4. Use `log/slog` for logging. Do not call `fmt.Println` or `fmt.Printf` in `internal/` or `cmd/`.
+  - file: AGENTS.md
+    line: 11
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["internal/sync/push.go: fmt.Println(\"pushed\", n)", "cmd/quillnote/main.go: fmt.Printf(\"listening on %s\\n\", addr)"]
+    obeys: ["internal/sync/push.go: slog.Info(\"pushed\", \"count\", n)", "tools/seed/main.go: fmt.Println(\"seeded\")"]
+  # 5. Never edit files under `vendor/`; run `go mod vendor` instead.
+  - file: AGENTS.md
+    line: 12
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["vendor/modules.txt", "vendor/github.com/acme/lib/lib.go"]
+    obeys: ["internal/store/note_store.go", "go.mod"]
+  # 6. File names are lower snake_case, for example `note_store.go`.
+  - file: AGENTS.md
+    line: 13
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["internal/store/NoteStore.go", "internal/store/note-store.go"]
+    obeys: ["internal/store/note_store.go", "internal/store/note_store_test.go"]
+  # 7. Leave pushing to the maintainers: never run `git push`.
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push -u origin main"]
+    obeys: ["git commit -m \"fix sync\"", "git log --oneline"]
+  # 8. Prefer table-driven tests.
+  - file: AGENTS.md
+    line: 15
+    status: uncheckable
+  # 9. Wrap errors with context before returning them.
+  - file: AGENTS.md
+    line: 16
+    status: uncheckable
+  # 10. Keep exported API changes minimal and call them out in your reply.
+  - file: AGENTS.md
+    line: 17
+    status: uncheckable
