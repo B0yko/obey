@@ -1,0 +1,118 @@
+{
+  "repositories": 600,
+  "fetched": 600,
+  "rules_total": 12977,
+  "rules_per_file": {
+    "median": 7.0,
+    "mean": 21.628333333333334,
+    "p90": 66,
+    "max": 193
+  },
+  "files_with_no_rules": 102,
+  "checkable_share": 0.23356708021884873,
+  "pre_tool_enforceable_share": 0.19935270093241889,
+  "stop_or_commit_only_share": 0.034214379286429834,
+  "types": [
+    {
+      "type": "content_forbidden_added",
+      "rules": 1520,
+      "repositories": 257
+    },
+    {
+      "type": "command_required",
+      "rules": 376,
+      "repositories": 179
+    },
+    {
+      "type": "path_forbidden",
+      "rules": 411,
+      "repositories": 169
+    },
+    {
+      "type": "command_forbidden",
+      "rules": 172,
+      "repositories": 96
+    },
+    {
+      "type": "no_commit",
+      "rules": 124,
+      "repositories": 96
+    },
+    {
+      "type": "no_push",
+      "rules": 143,
+      "repositories": 76
+    },
+    {
+      "type": "dependency_unchanged",
+      "rules": 104,
+      "repositories": 68
+    },
+    {
+      "type": "path_required_with",
+      "rules": 66,
+      "repositories": 44
+    },
+    {
+      "type": "content_required_added",
+      "rules": 66,
+      "repositories": 35
+    },
+    {
+      "type": "file_naming",
+      "rules": 28,
+      "repositories": 23
+    },
+    {
+      "type": "commit_message",
+      "rules": 19,
+      "repositories": 19
+    },
+    {
+      "type": "final_message",
+      "rules": 2,
+      "repositories": 2
+    }
+  ],
+  "repos_with_any_checkable": 351,
+  "enforcement": {
+    "counts": {
+      "claude_code_hooks": 18,
+      "gemini_hooks": 0,
+      "pre_commit": 29,
+      "husky": 23,
+      "lefthook": 8,
+      "codex_hooks": 6,
+      "cursor_hooks": 0,
+      "copilot_hooks": 1,
+      "opencode_plugins": 0
+    },
+    "agent_hooks_repos": 22,
+    "git_hook_repos": 60,
+    "any_repos": 78,
+    "any_share": 0.13
+  },
+  "licences": {
+    "none": 271,
+    "MIT": 189,
+    "Apache-2.0": 62,
+    "NOASSERTION": 35,
+    "AGPL-3.0": 14,
+    "GPL-3.0": 12,
+    "GPL-2.0": 3,
+    "MPL-2.0": 3,
+    "Unlicense": 3,
+    "0BSD": 2,
+    "LGPL-3.0": 2,
+    "BSD-3-Clause": 2,
+    "CC0-1.0": 1,
+    "BSD-2-Clause": 1
+  },
+  "stars_median": 0.0,
+  "llm": {
+    "uncheckable_sent": 9947,
+    "proposed_checkable": 3388,
+    "proposed_share_of_unmapped": 0.3406052076002815,
+    "checkable_share_with_llm": 0.49464437080989443
+  }
+}
