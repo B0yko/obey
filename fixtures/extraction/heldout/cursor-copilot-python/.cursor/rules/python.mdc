@@ -1,0 +1,12 @@
+---
+description: Python conventions for Sandpiper
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python conventions
+
+- Do not use bare `except:` clauses; catch a specific exception.
+- Use `subprocess.run([...])` with a list of arguments. Never pass `shell=True`.
+- Add or update a test in `tests/` for every change in `src/`.
+- Comment non-obvious regular expressions.

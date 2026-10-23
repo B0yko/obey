@@ -1,0 +1,55 @@
+case: cursor-copilot-python
+files: [".cursor/rules/python.mdc", ".github/copilot-instructions.md"]
+rules:
+  # - Do not use bare `except:` clauses; catch a specific exception.
+  - file: .cursor/rules/python.mdc
+    line: 9
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.py"]
+    violates: ["src/sandpiper/sync.py:     except:", "src/sandpiper/cli.py: except:  # noqa"]
+    obeys: ["src/sandpiper/sync.py:     except OSError:", "src/sandpiper/cli.py: except (ValueError, KeyError):"]
+  # - Use `subprocess.run([...])` with a list of arguments. Never pass `shell=True`.
+  - file: .cursor/rules/python.mdc
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.py"]
+    violates: ["src/sandpiper/export.py: subprocess.run(cmd, shell=True)", "src/sandpiper/sync.py:     subprocess.check_output(f\"cp {a} {b}\", shell=True)"]
+    obeys: ["src/sandpiper/export.py: subprocess.run([\"cp\", src, dst], check=True)", "src/sandpiper/export.py: subprocess.run([\"git\", \"status\"], capture_output=True)"]
+  # - Add or update a test in `tests/` for every change in `src/`.
+  - file: .cursor/rules/python.mdc
+    line: 11
+    status: active
+    type: path_required_with
+    scope_paths: ["**/*.py"]
+    violates: [["src/sandpiper/sync.py"], ["src/sandpiper/cli.py", "README.md"]]
+    obeys: [["src/sandpiper/sync.py", "tests/test_sync.py"], ["README.md"]]
+  # - Comment non-obvious regular expressions.
+  - file: .cursor/rules/python.mdc
+    line: 12
+    status: uncheckable
+  # Use "python -m pytest", not bare "pytest", so that the project root is on `sys.path`.
+  - file: .github/copilot-instructions.md
+    line: 7
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pytest", "pytest -q tests/", "pytest tests/test_sync.py"]
+    obeys: ["python -m pytest", "python -m pytest -q tests/"]
+  # Please don't commit on my behalf; I like to review the staged changes first.
+  - file: .github/copilot-instructions.md
+    line: 8
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"sync: handle duplicates\"", "git commit -am \"wip\""]
+    obeys: ["git status", "git add src/sandpiper/sync.py"]
+  # Keep explanations brief.
+  - file: .github/copilot-instructions.md
+    line: 9
+    status: uncheckable
+  # Prefer readable code to clever code.
+  - file: .github/copilot-instructions.md
+    line: 10
+    status: uncheckable

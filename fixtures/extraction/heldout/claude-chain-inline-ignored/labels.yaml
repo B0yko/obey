@@ -1,0 +1,59 @@
+case: claude-chain-inline-ignored
+files: ["CLAUDE.md", "docs/policy/dependencies.md", "docs/policy/quality.md", "docs/policy/delivery.md"]
+rules:
+  # Run `npm ci`, never `npm install`, so that `package-lock.json` is not rewritten by accident.
+  - file: CLAUDE.md
+    line: 5
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "npm i"]
+    obeys: ["npm ci", "npm test", "npm run lint"]
+  # Keep server start-up fast; it runs in short-lived containers.
+  - file: CLAUDE.md
+    line: 11
+    status: uncheckable
+  # - Adding a dependency requires approval: every package increases the audit surface.
+  - file: docs/policy/dependencies.md
+    line: 8
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["npm install express-rate-limit", "package.json: +cheerio", "npm add zod"]
+    obeys: ["npm ci", "npm test"]
+  # - Prefer the platform's built-in APIs over small utility packages.
+  - file: docs/policy/dependencies.md
+    line: 9
+    status: uncheckable
+  # - Run `npm run lint` before you finish; CI rejects lint failures anyway.
+  - file: docs/policy/quality.md
+    line: 8
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["npm test", "npm run build", "npm ci"]
+    obeys: ["npm run lint", "npm run lint -- --fix"]
+  # - `public/vendor/` contains vendored third-party scripts. Do not modify them.
+  - file: docs/policy/quality.md
+    line: 9
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["public/vendor/htmx.min.js", "public/vendor/alpine/alpine.js"]
+    obeys: ["public/app.js", "server/routes/feeds.js"]
+  # - Keep functions pure where possible.
+  - file: docs/policy/quality.md
+    line: 10
+    status: uncheckable
+  # - End your final message with the line `Verified: yes` or `Verified: no`, so reviewers can
+  - file: docs/policy/delivery.md
+    line: 8
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Added feed refresh.", "All checks passed."]
+    obeys: ["Added feed refresh.\nVerified: yes", "Verified: no"]
+  # - Mention anything you could not run.
+  - file: docs/policy/delivery.md
+    line: 10
+    status: uncheckable

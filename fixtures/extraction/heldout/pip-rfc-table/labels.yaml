@@ -1,0 +1,67 @@
+case: pip-rfc-table
+files: ["AGENTS.md"]
+rules:
+  # | R1 | MUST | Install packages only with `pip install -r requirements.txt`; ad-hoc `pip install <package>` ...
+  - file: AGENTS.md
+    line: 12
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install pandas", "pip install requests==2.32.0", "pip3 install tqdm"]
+    obeys: ["pip install -r requirements.txt", "pip install -r requirements-dev.txt", "pip list"]
+  # | R2 | MUST NOT | Add or upgrade dependencies without maintainer approval. |
+  - file: AGENTS.md
+    line: 13
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["pip install polars", "requirements.txt: +polars", "pip install pyarrow"]
+    obeys: ["pip install -r requirements.txt", "pip list"]
+  # | R3 | MUST NOT | Modify anything under `vendor/`. |
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["vendor/csvkit/core.py", "vendor/README.md"]
+    obeys: ["etl/load.py", "tests/test_load.py"]
+  # | R4 | MUST NOT | Call `print()` in `etl/`. |
+  - file: AGENTS.md
+    line: 15
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["etl/load.py: print(\"loaded\", n)", "etl/loaders/partner_csv.py:     print(row)"]
+    obeys: ["etl/load.py: log.info(\"loaded %d\", n)", "tests/test_load.py: print(n)"]
+  # | R5 | MUST | Start every new file in `etl/` with the line `# Copyright (c) 2025 the Hawthorn authors`. |
+  - file: AGENTS.md
+    line: 16
+    status: active
+    type: content_required_added
+    scope_paths: ["**"]
+    violates: ["etl/loaders/partner_csv.py: import csv", "etl/transform.py: from etl import load"]
+    obeys: ["etl/loaders/partner_csv.py: # Copyright (c) 2025 the Hawthorn authors", "tests/test_transform.py: import pytest"]
+  # | R6 | MUST | Begin commit messages with `feat:`, `fix:`, `docs:`, `chore:` or `refactor:`. |
+  - file: AGENTS.md
+    line: 17
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["update partner loader", "bugfix: drop empty rows", "Added csv loader"]
+    obeys: ["feat: add partner csv loader", "fix: skip blank rows", "refactor: split loader"]
+  # | R7 | MUST | Put a line `Tests: passed`, `Tests: failed` or `Tests: not run` in the final message. |
+  - file: AGENTS.md
+    line: 18
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Loader added.", "All tests pass."]
+    obeys: ["Loader added.\nTests: passed", "Tests: not run"]
+  # | R8 | SHOULD | Keep loaders idempotent, so a re-run of the same drop is harmless. |
+  - file: AGENTS.md
+    line: 19
+    status: uncheckable
+  # | R9 | SHOULD | Prefer small, composable transforms. |
+  - file: AGENTS.md
+    line: 20
+    status: uncheckable

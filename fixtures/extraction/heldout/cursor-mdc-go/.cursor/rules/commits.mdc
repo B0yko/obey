@@ -1,0 +1,10 @@
+---
+description: Commit conventions
+alwaysApply: true
+---
+
+Release notes for the Heron API are generated from the commit history, so history hygiene
+matters.
+
+- Commit messages follow Conventional Commits.
+- Squash fixups before asking for review.

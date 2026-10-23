@@ -1,0 +1,55 @@
+case: claude-import-cycle
+files: ["CLAUDE.md", "docs/rules/errors.md", "docs/rules/release.md"]
+rules:
+  # 1. Never run `go get -u` (blanket upgrades churn `go.sum`); pin versions explicitly.
+  - file: CLAUDE.md
+    line: 10
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["go get -u ./...", "go get -u github.com/gin-gonic/gin"]
+    obeys: ["go get github.com/gin-gonic/gin@v1.10.0", "go mod tidy", "go build ./..."]
+  # 2. Do not push to the remote.
+  - file: CLAUDE.md
+    line: 11
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin main"]
+    obeys: ["git commit -m \"cache: fix race\"", "git fetch"]
+  # 3. Think about eviction behaviour before changing the cache core.
+  - file: CLAUDE.md
+    line: 12
+    status: uncheckable
+  # - Do not call `log.Fatal` or `os.Exit` in packages under `internal/`; return the error.
+  - file: docs/rules/errors.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["internal/store/open.go:     log.Fatal(\"cannot open store\")", "internal/evict/lru.go:     os.Exit(1)"]
+    obeys: ["internal/store/open.go:     return fmt.Errorf(\"open store: %w\", err)", "cmd/pelican/main.go:     os.Exit(1)"]
+  # - Commit messages look like `area: short summary`, for example `cache: fix eviction race`.
+  - file: docs/rules/errors.md
+    line: 9
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Fix eviction race", "Cache: fix eviction race", "fixed it"]
+    obeys: ["cache: fix eviction race", "ttl: handle zero duration"]
+  # - Wrap errors with context.
+  - file: docs/rules/errors.md
+    line: 10
+    status: uncheckable
+  # - New Go files start with the line `// Copyright 2025 the Pelican Cache authors`.
+  - file: docs/rules/release.md
+    line: 8
+    status: active
+    type: content_required_added
+    scope_paths: ["**"]
+    violates: ["internal/evict/lfu.go: package evict", "cmd/pelican/flags.go: package main"]
+    obeys: ["internal/evict/lfu.go: // Copyright 2025 the Pelican Cache authors", "README.md: # Pelican Cache"]
+  # - Tag a release only when asked.
+  - file: docs/rules/release.md
+    line: 9
+    status: uncheckable

@@ -1,0 +1,75 @@
+case: nested-python-poetry-pipeline
+files: ["AGENTS.md", "services/ingest/AGENTS.md", "shared/AGENTS.md"]
+rules:
+  # Everything is built with Poetry. Please do not run `pip install` or `pip freeze` in this
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install pandas", "pip freeze > requirements.txt", "pip3 install -r requirements.txt"]
+    obeys: ["poetry add pandas", "poetry install", "poetry run pytest tests/unit"]
+  # Do not modify them to make a test pass.
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["tests/golden/orders_expected.csv", "tests/golden/summary/daily.csv"]
+    obeys: ["tests/unit/test_orders.py", "shared/schemas/orders.py"]
+  # Before you wrap up a change to anything under `services/` or `shared/`, run the unit tests
+  - file: AGENTS.md
+    line: 16
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["poetry run ruff check .", "poetry run mypy shared", "poetry install"]
+    obeys: ["poetry run pytest tests/unit", "poetry run pytest tests/unit -q"]
+  # New third-party libraries need a conversation first: every dependency has to be vetted by
+  - file: AGENTS.md
+    line: 20
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["poetry add httpx", "pyproject.toml: +tenacity", "poetry add --group dev hypothesis"]
+    obeys: ["poetry install", "poetry lock"]
+  # Your closing message should always include a line beginning with `Risk:` that says what
+  - file: AGENTS.md
+    line: 23
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Added the partner client.", "Done. Nothing can go wrong."]
+    obeys: ["Added the partner client.\nRisk: partner API may rate-limit", "Risk: nothing known"]
+  # Try to keep each job idempotent.
+  - file: AGENTS.md
+    line: 26
+    status: uncheckable
+  # Jobs must take the run timestamp as an argument.
+  - file: services/ingest/AGENTS.md
+    line: 6
+    status: uncheckable
+  # Never call `datetime.now()` or `datetime.utcnow()` inside a job, because re-running
+  - file: services/ingest/AGENTS.md
+    line: 7
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["services/ingest/**"]
+    violates: ["services/ingest/jobs/orders.py: ts = datetime.now()", "services/ingest/jobs/refunds.py:     since = datetime.utcnow() - timedelta(days=1)"]
+    obeys: ["services/ingest/jobs/orders.py: ts = run_ts", "services/ingest/jobs/refunds.py:     since = run_ts - timedelta(days=1)"]
+  # Retries are handled by the scheduler, so jobs should not add their own retry loops.
+  - file: services/ingest/AGENTS.md
+    line: 10
+    status: uncheckable
+  # Every new module in this directory starts with a module docstring within its first three
+  - file: shared/AGENTS.md
+    line: 5
+    status: active
+    type: content_required_added
+    scope_paths: ["shared/**"]
+    violates: ["shared/schemas/orders.py: from dataclasses import dataclass", "shared/http.py: import requests"]
+    obeys: ["shared/schemas/orders.py: \"\"\"Order schemas.\"\"\"", "shared/README.md: # shared"]
+  # Schemas are versioned: add a new version rather than changing an existing one.
+  - file: shared/AGENTS.md
+    line: 8
+    status: uncheckable

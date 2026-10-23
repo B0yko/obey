@@ -1,0 +1,55 @@
+case: claude-local-fence-missing
+files: ["CLAUDE.md", "docs/naming.md"]
+rules:
+  # - No `.unwrap()` in `src/`; propagate errors with `?`.
+  - file: CLAUDE.md
+    line: 16
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/rename.rs:     let ext = path.extension().unwrap();", "src/main.rs: let args = Args::try_parse().unwrap();"]
+    obeys: ["src/rename.rs:     let ext = path.extension().ok_or(Error::NoExt)?;", "tests/rename.rs:     let ext = path.extension().unwrap();"]
+  # - Do not leave `todo!()` or `unimplemented!()` in committed code.
+  - file: CLAUDE.md
+    line: 17
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/rename.rs:     todo!()", "src/exif.rs:     unimplemented!()"]
+    obeys: ["src/rename.rs:     Ok(new_name)", "src/exif.rs:     Err(Error::Unsupported)"]
+  # - Run `cargo clippy -- -D warnings` after editing Rust files.
+  - file: CLAUDE.md
+    line: 18
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["cargo build", "cargo fmt", "cargo test"]
+    obeys: ["cargo clippy -- -D warnings", "cargo clippy --all-targets -- -D warnings"]
+  # - Name Rust source files in snake_case.
+  - file: CLAUDE.md
+    line: 19
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["src/ExifReader.rs", "src/exif-reader.rs"]
+    obeys: ["src/exif_reader.rs", "src/rename.rs"]
+  # - Do not commit; the maintainer commits.
+  - file: CLAUDE.md
+    line: 20
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"add dry-run flag\"", "git commit -am \"exif fix\""]
+    obeys: ["git status", "git diff --stat"]
+  # - Prefer borrowing over cloning.
+  - file: CLAUDE.md
+    line: 21
+    status: uncheckable
+  # - CLI flags use kebab-case, for example `--dry-run`.
+  - file: docs/naming.md
+    line: 8
+    status: uncheckable
+  # - Do not abbreviate public type names.
+  - file: docs/naming.md
+    line: 9
+    status: uncheckable

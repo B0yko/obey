@@ -1,0 +1,12 @@
+---
+description: Testing rules
+globs: **/*_test.go
+alwaysApply: false
+---
+
+Tests run with the standard `testing` package. Integration tests need Postgres and are tagged
+with `//go:build integration`.
+
+- After editing a `_test.go` file, run `go test ./...`.
+- For each change in `internal/`, add or update a `_test.go` file next to it.
+- Use table-driven tests where it fits.

@@ -1,0 +1,59 @@
+case: bun-service-softened
+files: ["AGENTS.md"]
+rules:
+  # This repository is installed and run with Bun. npm, yarn and pnpm should not be used for
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "yarn add hono", "pnpm install", "npm run gen"]
+    obeys: ["bun install", "bun add hono", "bun run gen"]
+  # `console.log` calls are not expected in committed code. Structured logging goes through
+  - file: AGENTS.md
+    line: 11
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/worker/runner.ts: console.log(\"job done\", id);", "src/api/routes.ts:   console.log(req.url)"]
+    obeys: ["src/worker/runner.ts: log.info(\"job done\", { id });", "src/api/routes.ts:   const url = req.url;"]
+  # Anything in `src/gen/` is produced by `bun run gen` and should not be modified by hand.
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: path_forbidden
+    scope_paths: ["**"]
+    violates: ["src/gen/schema.ts", "src/gen/client/jobs.ts"]
+    obeys: ["src/api/routes.ts", "scripts/gen.ts"]
+  # Test files are expected to be named `<name>.test.ts`, and they belong in `tests/`.
+  - file: AGENTS.md
+    line: 16
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["tests/queue.spec.ts", "tests/worker.spec.ts"]
+    obeys: ["tests/queue.test.ts", "tests/worker/retry-backoff.test.ts"]
+  # Changes are normally committed by the maintainer, so it is best to leave them uncommitted.
+  - file: AGENTS.md
+    line: 18
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"retry backoff\"", "git commit -am \"tweak worker\""]
+    obeys: ["git status", "git diff --stat"]
+  # Once the work is complete, running `bun run check` would be appreciated.
+  - file: AGENTS.md
+    line: 20
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["bun run dev", "bun install", "bun test"]
+    obeys: ["bun run check", "bun run check --quiet"]
+  # It would also be good to keep modules cohesive.
+  - file: AGENTS.md
+    line: 22
+    status: uncheckable
+  # Error messages ought to be actionable.
+  - file: AGENTS.md
+    line: 24
+    status: uncheckable

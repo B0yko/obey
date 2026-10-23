@@ -1,0 +1,10 @@
+---
+description: Go style for the Heron API
+globs: **/*.go
+alwaysApply: false
+---
+
+- Use `errors.New` or `fmt.Errorf` instead of `github.com/pkg/errors`.
+- Prefer `any` over `interface{}` in new code.
+- Name files in lower_snake_case.
+- Keep packages small and focused.

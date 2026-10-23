@@ -1,0 +1,63 @@
+case: cursor-mdc-go
+files: [".cursor/rules/go-style.mdc", ".cursor/rules/tests.mdc", ".cursor/rules/commits.mdc"]
+rules:
+  # - Use `errors.New` or `fmt.Errorf` instead of `github.com/pkg/errors`.
+  - file: .cursor/rules/go-style.mdc
+    line: 7
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.go"]
+    violates: ["internal/api/handler.go:     \"github.com/pkg/errors\"", "internal/store/open.go: import \"github.com/pkg/errors\""]
+    obeys: ["internal/api/handler.go:     \"errors\"", "internal/store/open.go: import \"fmt\""]
+  # - Prefer `any` over `interface{}` in new code.
+  - file: .cursor/rules/go-style.mdc
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.go"]
+    violates: ["internal/api/handler.go: func decode(v interface{}) error {", "internal/store/open.go: var cache map[string]interface{}"]
+    obeys: ["internal/api/handler.go: func decode(v any) error {", "internal/store/open.go: var cache map[string]any"]
+  # - Name files in lower_snake_case.
+  - file: .cursor/rules/go-style.mdc
+    line: 9
+    status: active
+    type: file_naming
+    scope_paths: ["**/*.go"]
+    violates: ["internal/api/UserHandler.go", "internal/api/user-handler.go"]
+    obeys: ["internal/api/user_handler.go", "cmd/heron/main.go"]
+  # - Keep packages small and focused.
+  - file: .cursor/rules/go-style.mdc
+    line: 10
+    status: uncheckable
+  # - After editing a `_test.go` file, run `go test ./...`.
+  - file: .cursor/rules/tests.mdc
+    line: 10
+    status: active
+    type: command_required
+    scope_paths: ["**/*_test.go"]
+    violates: ["go build ./...", "go vet ./...", "gofmt -l ."]
+    obeys: ["go test ./...", "go test ./internal/..."]
+  # - For each change in `internal/`, add or update a `_test.go` file next to it.
+  - file: .cursor/rules/tests.mdc
+    line: 11
+    status: active
+    type: path_required_with
+    scope_paths: ["**/*_test.go"]
+    violates: [["internal/api/handler.go"], ["internal/store/open.go", "README.md"]]
+    obeys: [["internal/api/handler.go", "internal/api/handler_test.go"], ["cmd/heron/main.go"]]
+  # - Use table-driven tests where it fits.
+  - file: .cursor/rules/tests.mdc
+    line: 12
+    status: uncheckable
+  # - Commit messages follow Conventional Commits.
+  - file: .cursor/rules/commits.mdc
+    line: 9
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Add user handler", "fixed nil pointer", "wip"]
+    obeys: ["feat: add user handler", "fix(store): handle nil pointer", "chore: bump go to 1.23"]
+  # - Squash fixups before asking for review.
+  - file: .cursor/rules/commits.mdc
+    line: 10
+    status: uncheckable

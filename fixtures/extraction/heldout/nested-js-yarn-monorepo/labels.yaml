@@ -1,0 +1,79 @@
+case: nested-js-yarn-monorepo
+files: ["AGENTS.md", "apps/dashboard/AGENTS.md", "libs/ui/AGENTS.md"]
+rules:
+  # - Use yarn for every command, for example `yarn install` or `yarn workspace dashboard build`.
+  - file: AGENTS.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["npm install", "pnpm add recharts", "npm run build --workspace dashboard"]
+    obeys: ["yarn install", "yarn add recharts", "yarn workspace dashboard build"]
+  # - Keep changes scoped to one workspace where possible.
+  - file: AGENTS.md
+    line: 9
+    status: uncheckable
+  # - Write commit bodies that explain why the change was made.
+  - file: AGENTS.md
+    line: 10
+    status: uncheckable
+  # - Don't push. A maintainer pushes after review.
+  - file: AGENTS.md
+    line: 14
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin main"]
+    obeys: ["git commit -m \"fix chart legend\"", "git status"]
+  # - Don't rename workspaces.
+  - file: AGENTS.md
+    line: 15
+    status: uncheckable
+  # - Do add a test in `src/__tests__/` whenever you change a hook in `src/hooks/`.
+  - file: apps/dashboard/AGENTS.md
+    line: 6
+    status: active
+    type: path_required_with
+    scope_paths: ["apps/dashboard/**"]
+    violates: [["apps/dashboard/src/hooks/useOrders.ts"], ["apps/dashboard/src/hooks/useAuth.ts", "apps/dashboard/README.md"]]
+    obeys: [["apps/dashboard/src/hooks/useOrders.ts", "apps/dashboard/src/__tests__/useOrders.test.ts"], ["apps/dashboard/src/pages/Home.tsx"]]
+  # - Don't use `localStorage` directly; go through `src/storage.ts`.
+  - file: apps/dashboard/AGENTS.md
+    line: 7
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["apps/dashboard/**"]
+    violates: ["apps/dashboard/src/pages/Home.tsx: const t = localStorage.getItem('token');", "apps/dashboard/src/hooks/useAuth.ts:   localStorage.setItem('token', t);"]
+    obeys: ["apps/dashboard/src/pages/Home.tsx: const t = storage.get('token');", "apps/dashboard/src/hooks/useAuth.ts:   storage.set('token', t);"]
+  # - Don't call the REST API from components; use the data hooks.
+  - file: apps/dashboard/AGENTS.md
+    line: 8
+    status: uncheckable
+  # - Do name component files in PascalCase (`Button.tsx`, `DataTable.tsx`).
+  - file: libs/ui/AGENTS.md
+    line: 5
+    status: active
+    type: file_naming
+    scope_paths: ["libs/ui/**"]
+    violates: ["libs/ui/src/data-table.tsx", "libs/ui/src/dataTable.tsx"]
+    obeys: ["libs/ui/src/DataTable.tsx", "libs/ui/src/Button.tsx"]
+  # - Don't import from `apps/`; this library must not depend on applications.
+  - file: libs/ui/AGENTS.md
+    line: 6
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["libs/ui/**"]
+    violates: ["libs/ui/src/Button.tsx: import { theme } from '../../../apps/dashboard/src/theme';", "libs/ui/src/DataTable.tsx: import { useOrders } from '../../apps/dashboard/src/hooks/useOrders';"]
+    obeys: ["libs/ui/src/Button.tsx: import { theme } from './theme';", "libs/ui/src/DataTable.tsx: import { clsx } from './clsx';"]
+  # - Don't add runtime dependencies; `react` is a peer dependency only.
+  - file: libs/ui/AGENTS.md
+    line: 7
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["libs/ui/**"]
+    violates: ["yarn workspace ui add clsx", "libs/ui/package.json: +clsx"]
+    obeys: ["yarn install", "yarn workspace ui build"]
+  # - Do keep components stateless where possible.
+  - file: libs/ui/AGENTS.md
+    line: 8
+    status: uncheckable

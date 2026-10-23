@@ -1,0 +1,71 @@
+case: mixed-claude-cursor-copilot-sql
+files: ["CLAUDE.md", "docs/sql-style.md", ".cursor/rules/models.mdc", ".github/instructions/sql.instructions.md"]
+rules:
+  # - Never run `dbt run --full-refresh`; it drops the history tables.
+  - file: CLAUDE.md
+    line: 8
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["dbt run --full-refresh", "dbt run --select orders --full-refresh"]
+    obeys: ["dbt run --select orders", "dbt test", "dbt run"]
+  # - Do not commit.
+  - file: CLAUDE.md
+    line: 9
+    status: active
+    type: no_commit
+    scope_paths: ["**"]
+    violates: ["git commit -m \"add mart_revenue\"", "git commit -am wip"]
+    obeys: ["git status", "git diff models/"]
+  # - Mention which models you touched in your final message.
+  - file: CLAUDE.md
+    line: 10
+    status: uncheckable
+  # - Never use `SELECT *` in models.
+  - file: docs/sql-style.md
+    line: 7
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["models/staging/stg_orders.sql: select * from raw.orders", "models/marts/mart_revenue.sql: SELECT * FROM {{ ref('stg_orders') }}"]
+    obeys: ["models/staging/stg_orders.sql: select order_id, total from raw.orders", "models/staging/stg_users.sql: select user_id, email from raw.users"]
+  # - Prefer CTEs over nested subqueries.
+  - file: docs/sql-style.md
+    line: 8
+    status: uncheckable
+  # - Model files are named `<layer>_<entity>.sql` in snake_case, for example `stg_orders.sql`.
+  - file: .cursor/rules/models.mdc
+    line: 7
+    status: active
+    type: file_naming
+    scope_paths: ["models/**/*.sql"]
+    violates: ["models/staging/orders.sql", "models/marts/MartOrders.sql"]
+    obeys: ["models/staging/stg_orders.sql", "models/marts/mart_revenue.sql"]
+  # - Every new model starts with a comment line `-- owner: <team>` within its first three lines.
+  - file: .cursor/rules/models.mdc
+    line: 9
+    status: active
+    type: content_required_added
+    scope_paths: ["models/**/*.sql"]
+    violates: ["models/marts/mart_revenue.sql: select order_id from {{ ref('stg_orders') }}", "models/staging/stg_users.sql: with src as (select 1)"]
+    obeys: ["models/marts/mart_revenue.sql: -- owner: finance", "docs/sql-style.md: # SQL style"]
+  # - A change to a model under `models/marts/` needs an updated `models/marts/schema.yml`.
+  - file: .cursor/rules/models.mdc
+    line: 10
+    status: active
+    type: path_required_with
+    scope_paths: ["models/**/*.sql"]
+    violates: [["models/marts/mart_revenue.sql"], ["models/marts/mart_orders.sql", "models/staging/stg_orders.sql"]]
+    obeys: [["models/marts/mart_revenue.sql", "models/marts/schema.yml"], ["models/staging/stg_orders.sql"]]
+  # - Do not use `DROP TABLE` or `TRUNCATE` in model files.
+  - file: .github/instructions/sql.instructions.md
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/*.sql"]
+    violates: ["models/marts/mart_revenue.sql: drop table if exists tmp_revenue;", "models/staging/stg_orders.sql: TRUNCATE TABLE staging.orders;"]
+    obeys: ["models/marts/mart_revenue.sql: create or replace view mart_revenue as", "models/staging/stg_orders.sql: select order_id from raw.orders"]
+  # - Avoid vendor-specific functions unless a comment explains why.
+  - file: .github/instructions/sql.instructions.md
+    line: 11
+    status: uncheckable

@@ -1,0 +1,59 @@
+case: gemini-rust-numbered
+files: ["GEMINI.md"]
+rules:
+  # 1. Do not use `unsafe` anywhere in this crate.
+  - file: GEMINI.md
+    line: 9
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/parse.rs:     unsafe { std::str::from_utf8_unchecked(bytes) }", "src/lib.rs: unsafe impl Send for Schedule {}"]
+    obeys: ["src/parse.rs:     std::str::from_utf8(bytes)?", "src/lib.rs: impl Schedule {"]
+  # 2. Do not use `panic!`, `todo!` or `unimplemented!`.
+  - file: GEMINI.md
+    line: 10
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**"]
+    violates: ["src/parse.rs:     panic!(\"bad field\");", "src/next.rs:     todo!()"]
+    obeys: ["src/parse.rs:     return Err(ParseError::BadField);", "src/next.rs:     Ok(candidate)"]
+  # 3. Prefer `&str` parameters over `String` where ownership is not needed.
+  - file: GEMINI.md
+    line: 11
+    status: uncheckable
+  # 1. Run `cargo test` after every code change.
+  - file: GEMINI.md
+    line: 13
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["cargo build", "cargo clippy", "cargo fmt"]
+    obeys: ["cargo test", "cargo test --lib"]
+  # 2. Never run `git push`.
+  - file: GEMINI.md
+    line: 14
+    status: active
+    type: no_push
+    scope_paths: ["**"]
+    violates: ["git push", "git push origin main"]
+    obeys: ["git commit -m \"fix: dom wrap\"", "git log -1"]
+  # 1. Do not add crates other than `chrono` and `thiserror`.
+  - file: GEMINI.md
+    line: 16
+    status: active
+    type: dependency_unchanged
+    scope_paths: ["**"]
+    violates: ["cargo add regex", "Cargo.toml: +serde"]
+    obeys: ["cargo add chrono", "Cargo.toml: +thiserror", "cargo build"]
+  # 1. Finish every reply with a line `Outcome:` followed by `done`, `blocked` or `partial`.
+  - file: GEMINI.md
+    line: 18
+    status: active
+    type: final_message
+    scope_paths: ["**"]
+    violates: ["Added L and W day-of-month support.", "Outcome: finished"]
+    obeys: ["Added support.\nOutcome: done", "Outcome: blocked"]
+  # 2. Keep the parser readable and comment tricky edge cases.
+  - file: GEMINI.md
+    line: 19
+    status: uncheckable

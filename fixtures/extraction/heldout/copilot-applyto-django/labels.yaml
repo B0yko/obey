@@ -1,0 +1,55 @@
+case: copilot-applyto-django
+files: [".github/copilot-instructions.md", ".github/instructions/migrations.instructions.md", ".github/instructions/views.instructions.md"]
+rules:
+  # - Run `python manage.py test` after changing Python files.
+  - file: .github/copilot-instructions.md
+    line: 15
+    status: active
+    type: command_required
+    scope_paths: ["**"]
+    violates: ["python manage.py check", "python manage.py makemigrations --check", "flake8 employees"]
+    obeys: ["python manage.py test", "python manage.py test employees"]
+  # - Python modules and packages use snake_case names.
+  - file: .github/copilot-instructions.md
+    line: 16
+    status: active
+    type: file_naming
+    scope_paths: ["**"]
+    violates: ["employees/PayrollExport.py", "employees/payroll-export.py"]
+    obeys: ["employees/payroll_export.py", "directory/views/search_results.py"]
+  # - Explain database changes in the pull request description.
+  - file: .github/copilot-instructions.md
+    line: 17
+    status: uncheckable
+  # - Do not modify migration files that already exist; create a new migration instead.
+  - file: .github/instructions/migrations.instructions.md
+    line: 10
+    status: active
+    type: path_forbidden
+    scope_paths: ["**/migrations/*.py"]
+    violates: ["employees/migrations/0001_initial.py", "employees/migrations/0002_add_department.py", "directory/migrations/0001_initial.py"]
+    obeys: ["employees/models.py", "employees/views.py"]
+  # - Provide a reverse function for every `RunPython` operation.
+  - file: .github/instructions/migrations.instructions.md
+    line: 11
+    status: uncheckable
+  # - Never use `csrf_exempt`.
+  - file: .github/instructions/views.instructions.md
+    line: 8
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["**/views.py", "**/views/*.py"]
+    violates: ["employees/views.py: @csrf_exempt", "directory/views/search.py: from django.views.decorators.csrf import csrf_exempt"]
+    obeys: ["employees/views.py: @login_required", "directory/views/search.py: from django.views.decorators.http import require_GET"]
+  # - Each new module under a `views/` package starts with a module docstring.
+  - file: .github/instructions/views.instructions.md
+    line: 9
+    status: active
+    type: content_required_added
+    scope_paths: ["**/views.py", "**/views/*.py"]
+    violates: ["directory/views/search.py: from django.shortcuts import render", "directory/views/export.py: import csv"]
+    obeys: ["directory/views/search.py: \"\"\"Search views.\"\"\"", "directory/models.py: from django.db import models"]
+  # - Keep views free of business logic.
+  - file: .github/instructions/views.instructions.md
+    line: 10
+    status: uncheckable

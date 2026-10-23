@@ -1,0 +1,63 @@
+case: django-backend-nested
+files: ["AGENTS.md", "backend/AGENTS.md"]
+rules:
+  # - Do not use `pip` or `python -m pip`.
+  - file: AGENTS.md
+    line: 9
+    status: active
+    type: command_forbidden
+    scope_paths: ["**"]
+    violates: ["pip install django-filter", "python -m pip install -r requirements.txt", "pip3 install celery"]
+    obeys: ["uv add django-filter", "uv sync", "uv run python manage.py migrate"]
+  # - Use Conventional Commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`).
+  - file: AGENTS.md
+    line: 11
+    status: active
+    type: commit_message
+    scope_paths: ["**"]
+    violates: ["Add order export", "fixed totals", "Refactor: split views"]
+    obeys: ["feat: add order export", "fix(orders): correct totals", "refactor: split views"]
+  # - Keep each commit to one logical change.
+  - file: AGENTS.md
+    line: 12
+    status: uncheckable
+  # - Ask before you delete files.
+  - file: AGENTS.md
+    line: 16
+    status: uncheckable
+  # - If something is unclear, say so instead of guessing.
+  - file: AGENTS.md
+    line: 17
+    status: uncheckable
+  # - Never rewrite a migration that is already on `main`; add a follow-up migration instead.
+  - file: backend/AGENTS.md
+    line: 8
+    status: active
+    type: path_forbidden
+    scope_paths: ["backend/**"]
+    violates: ["backend/orders/migrations/0001_initial.py", "backend/orders/migrations/0002_order_notes.py", "backend/customers/migrations/0001_initial.py"]
+    obeys: ["backend/orders/models.py", "backend/orders/views.py"]
+  # - Any edit to a `models.py` ships together with its migration in the same change.
+  - file: backend/AGENTS.md
+    line: 9
+    status: active
+    type: path_required_with
+    scope_paths: ["backend/**"]
+    violates: [["backend/orders/models.py"], ["backend/customers/models.py", "backend/customers/admin.py"]]
+    obeys: [["backend/orders/models.py", "backend/orders/migrations/0003_order_status.py"], ["backend/orders/views.py"]]
+  # - Don't leave `breakpoint()` or `pdb.set_trace()` calls in code.
+  - file: backend/AGENTS.md
+    line: 11
+    status: active
+    type: content_forbidden_added
+    scope_paths: ["backend/**"]
+    violates: ["backend/orders/views.py:     breakpoint()", "backend/customers/services.py: import pdb; pdb.set_trace()"]
+    obeys: ["backend/orders/views.py:     logger.debug(\"view called\")", "backend/customers/services.py: import logging"]
+  # - Run `uv run python manage.py test` from `backend/` after changing Python files.
+  - file: backend/AGENTS.md
+    line: 15
+    status: active
+    type: command_required
+    scope_paths: ["backend/**"]
+    violates: ["uv run python manage.py check", "uv run ruff check backend", "uv sync"]
+    obeys: ["uv run python manage.py test", "uv run python manage.py test orders"]

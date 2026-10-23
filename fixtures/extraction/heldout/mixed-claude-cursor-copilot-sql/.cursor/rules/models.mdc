@@ -1,0 +1,10 @@
+---
+description: Conventions for files in models/
+globs: models/**/*.sql
+alwaysApply: false
+---
+
+- Model files are named `<layer>_<entity>.sql` in snake_case, for example `stg_orders.sql`.
+  The layer is `stg`, `int` or `mart`.
+- Every new model starts with a comment line `-- owner: <team>` within its first three lines.
+- A change to a model under `models/marts/` needs an updated `models/marts/schema.yml`.
