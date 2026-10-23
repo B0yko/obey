@@ -849,6 +849,10 @@ def fam_path_forbidden(c: Candidate) -> dict[str, Any] | None:
         }
     if not paths:
         return None
+    # "Do not write `export default` in `src/`" forbids code, not the directory.
+    code_objects = [x for x in _spans(c) if x not in paths and not re.match(r"^[\w.-]+(/[\w.-]*)*/?$", x)]
+    if code_objects and re.search(r"\b(write|use|add|call|import|leave|put)\b", t):
+        return None
     generated = re.search(
         r"\b(generated|regenerated|build output|produced by|vendored|immutable|read-only|"
         r"auto-?generated|do not edit|don't edit)\b",

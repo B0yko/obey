@@ -119,6 +119,36 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("report", "re-score recorded runs with the current checkers and render the report", c.cmd_report)
     p.add_argument("runs", help="runs.jsonl written by `obey run`")
     p.add_argument("--format", choices=["files", "html", "md", "json"], default="files")
+
+    p = add("enforce", "compile rules into hooks for your agents and a git pre-commit check", c.cmd_enforce)
+    p.add_argument(
+        "--targets",
+        default="claude,codex,cursor,gemini,copilot,opencode,precommit",
+        help="comma-separated: claude, codex, cursor, gemini, copilot, opencode, precommit",
+    )
+    p.add_argument(
+        "--from",
+        dest="from_report",
+        default=None,
+        metavar="REPORT.json",
+        help="only rules broken in this report (for example .obey/report.json)",
+    )
+    p.add_argument("--rules", default=None, help="comma-separated rule ids")
+    p.add_argument("--dry-run", action="store_true", help="print the diff and write nothing")
+    p.add_argument("--remove", action="store_true", help="remove obey's entries and files")
+
+    p = add("lint", "check obey.yaml, instruction-file hashes and enforcement sync; write the badge", c.cmd_lint)
+    p.add_argument("--no-badge", action="store_true", help="check for obey-badge.json without rewriting it")
+
+    p = add("doctor", "check git, Docker, the sandbox image, the agent CLIs and the API key", c.cmd_doctor)
+    p.add_argument("--image", default=None)
+    p.add_argument("--build-image", action="store_true", help="build the default sandbox image (a few GB)")
+
+    p = add("init", "extract rules and create probes in one step", c.cmd_init)
+
+    p = add("precommit", "run .obey/pre-commit (for the pre-commit framework)", c.cmd_precommit)
+    p.add_argument("--commit-msg", action="store_true", help="check the commit message file instead of staged files")
+    p.add_argument("files", nargs="*")
     return parser
 
 

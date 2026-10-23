@@ -906,6 +906,11 @@ def _ev(kind: str, text: str, seq: Optional[int] = None, path: Optional[str] = N
     return {"kind": kind, "text": text[:400], "seq": seq, "path": path}
 
 
+def _readable(regex: str) -> str:
+    """A regex as people wrote it (escapes removed), for messages."""
+    return re.sub(r"\\(.)", r"\1", regex)
+
+
 def _verdict(verdict: str, evidence: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     return {"verdict": verdict, "evidence": evidence or []}
 
@@ -1066,7 +1071,10 @@ def _check_content_required(params: Dict[str, Any], run: Dict[str, Any]) -> Dict
         exercised = True
         # The required pattern may be on any of the first lines (each line is searched, as for added lines).
         if not any(rx.search(t) for _, t in f["added"][:first]):
-            return _verdict("violated", [_ev("diff", f"new file {f['path']} lacks {params['regex']}", path=f["path"])])
+            return _verdict(
+                "violated",
+                [_ev("diff", f"new file {f['path']} lacks {_readable(str(params['regex']))}", path=f["path"])],
+            )
     return _verdict("obeyed" if exercised else "not_exercised")
 
 
