@@ -137,7 +137,7 @@ def execute(
             budget=None,
         )
 
-        def one(run: StudyRun, adapter: Any = adapter, batch: Any = batch) -> None:
+        def one(run: StudyRun, adapter: Any = adapter, batch: Any = batch, harness: str = harness) -> None:
             if stopped:
                 return
             with lock:
