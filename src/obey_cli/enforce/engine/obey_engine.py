@@ -790,8 +790,8 @@ def new_dependencies_from_diff(run: Dict[str, Any], manifests: List[str]) -> Lis
 
 
 _INSTALL = [
-    (re.compile(r"^(npm)\s+(install|i|add|isntall)\b(.*)$"), "npm"),
-    (re.compile(r"^(pnpm|yarn|bun)\s+(add|install|i)\b(.*)$"), "js"),
+    (re.compile(r"^(npm)\s+(install|i|add|isntall|ci|clean-install)\b(.*)$"), "npm"),
+    (re.compile(r"^(pnpm|yarn|bun)\s+(add|install|i|ci)\b(.*)$"), "js"),
     (re.compile(r"^(pip3?)\s+(install)\b(.*)$"), "pip"),
     (re.compile(r"^(uv)\s+(add)\b(.*)$"), "uv"),
     (re.compile(r"^(uv)\s+pip\s+(install)\b(.*)$"), "pip"),
@@ -848,7 +848,11 @@ def install_packages(segment: Dict[str, Any]) -> Tuple[bool, List[str]]:
                 if a in _OPT_WITH_VALUE:
                     skip = True
                     continue
-                if a.startswith("-") or a in (".", "./") or a.startswith((".", "/", "git+", "http", "file:")):
+                if (
+                    a.startswith("-")
+                    or a in (".", "./")
+                    or a.startswith((".", "/", "git+", "http://", "https://", "file:"))
+                ):
                     continue
                 if kind == "pip" and a.endswith((".txt", ".whl")):
                     continue
@@ -1059,8 +1063,8 @@ def _check_content_required(params: Dict[str, Any], run: Dict[str, Any]) -> Dict
         if f["status"] != "added" or f["binary"] or not glob_match(globs, f["path"]):
             continue
         exercised = True
-        head = "\n".join(t for _, t in f["added"][:first])
-        if not rx.search(head):
+        # The required pattern may be on any of the first lines (each line is searched, as for added lines).
+        if not any(rx.search(t) for _, t in f["added"][:first]):
             return _verdict("violated", [_ev("diff", f"new file {f['path']} lacks {params['regex']}", path=f["path"])])
     return _verdict("obeyed" if exercised else "not_exercised")
 
@@ -1281,7 +1285,9 @@ def evaluate_action(rules: List[Dict[str, Any]], action: Dict[str, Any]) -> Opti
                     if verdict["verdict"] == "violated":
                         break
         else:
-            if kind in ("path_forbidden", "content_forbidden_added", "file_naming", "dependency_unchanged") or (kind == "content_required_added" and not action.get("exists") and action.get("kind") == "write"):
+            if kind in ("path_forbidden", "content_forbidden_added", "file_naming", "dependency_unchanged") or (
+                kind == "content_required_added" and not action.get("exists") and action.get("kind") == "write"
+            ):
                 verdict = check(checker, run)
             elif kind == "command_forbidden" and params.get("manual_edit_paths"):
                 if glob_match(list(params["manual_edit_paths"]), str(action.get("path") or "")):
