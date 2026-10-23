@@ -36,7 +36,9 @@ def cmd_extract(args: argparse.Namespace) -> int:
         from obey_cli.runner.ledger import Ledger
 
         ledger = Ledger(root / ".obey" / "ledger.jsonl", budget_usd=args.budget)
-        proposals = llm_propose(extract(discover(root, args.include_local)), LLMConfig.from_env(args.llm_model), ledger)
+        proposals = llm_propose(
+            extract(discover(root, args.include_local), root), LLMConfig.from_env(args.llm_model), ledger
+        )
     config, files = build_config(root, previous, args.include_local, proposals)
     if not files:
         _err(f"no agent instruction files found under {root}")

@@ -16,6 +16,7 @@ DEFAULT_MANIFESTS = [
     "**/package.json",
     "**/pyproject.toml",
     "**/requirements*.txt",
+    "**/requirements*.in",
     "**/go.mod",
     "**/Cargo.toml",
     "**/setup.cfg",
@@ -702,7 +703,7 @@ def manifest_deps(path: str, lines: List[Tuple[str, str]], side: str) -> List[st
             elif _JSON_DEP_RE.match(text):
                 names.append(m.group(1))
             continue
-        if base.startswith("requirements") and base.endswith(".txt"):
+        if base.startswith("requirements") and base.endswith((".txt", ".in")):
             if kind == side and stripped.strip() and not stripped.strip().startswith(("-", "git+", "http")):
                 m = re.match(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)", stripped)
                 if m:

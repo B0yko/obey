@@ -65,7 +65,7 @@ def eval_extraction(split: str, verbose: bool = False) -> dict[str, Any]:
     for case in sorted(p for p in base.iterdir() if p.is_dir()):
         spec = yaml.safe_load((case / "labels.yaml").read_text())
         files = discover(case)
-        rules = [x.as_rule() for x in extract(files)]
+        rules = [x.as_rule() for x in extract(files, case)]
         used: set[int] = set()
         for label in spec["rules"]:
             labels_total += 1

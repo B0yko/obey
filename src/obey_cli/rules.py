@@ -50,7 +50,7 @@ def build_config(
     root: Path, previous: dict[str, Any] | None = None, include_local: bool = False, proposals: Sequence[Extracted] = ()
 ) -> tuple[dict[str, Any], list[InstructionFile]]:
     files = discover(root, include_local=include_local)
-    items = extract(files)
+    items = extract(files, root)
     fresh = [x.as_rule() for x in items] + [p.as_rule() for p in proposals]
     rules = merge(fresh, (previous or {}).get("rules") or [])
     config: dict[str, Any] = {

@@ -33,7 +33,7 @@ _PATHY_RE = re.compile(r"^(?:\.{0,2}/)?[\w.*@\-\[\]{}]+(?:/[\w.*@\-\[\]{}]*)*/?$
 _EXT_LANG = {
     "py": ["**/*.py"],
     "ts": ["**/*.ts", "**/*.tsx"],
-    "js": ["**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "**/*.ts", "**/*.tsx"],
+    "js": ["**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "**/*.ts", "**/*.tsx", "**/*.vue", "**/*.svelte"],
     "go": ["**/*.go"],
     "rs": ["**/*.rs"],
 }
@@ -115,9 +115,14 @@ def _glob(path: str) -> str:
 def _dirs_in_text(c: Candidate) -> list[str]:
     """Directories a rule is limited to ("in `src/`", "under app/")."""
     dirs: list[str] = []
-    for m in re.finditer(r"\b(?:in|under|inside|within|from|to)\s+`?([\w.-]+(?:/[\w.-]+)*/)`?", c.raw):
+    for m in re.finditer(
+        r"\b(?:in|under|inside|within|from|to)\s+`?([\w.-]+(?:/[\w.-]+)*/)`?((?:\s*(?:,|or|and)\s*`?"
+        r"[\w.-]+(?:/[\w.-]+)*/`?)*)",
+        c.raw,
+    ):
         dirs.append(m.group(1))
-    return dirs
+        dirs += re.findall(r"([\w.-]+(?:/[\w.-]+)*/)", m.group(2) or "")
+    return list(dict.fromkeys(dirs))
 
 
 def _lang_globs(text: str, spans: Sequence[str]) -> list[str]:
@@ -252,14 +257,15 @@ def fam_final_message(c: Candidate) -> dict[str, Any] | None:
         first = spans[0]
         alts = [re.escape(s) for s in spans if s and len(s) < 60]
         alt = "|".join(alts)
+        line_rule = re.search(r"line (starting|that starts|beginning)|under a line|a line ", t)
+        if re.search(r"\bend", t) and line_rule:
+            return {"type": "final_message", "params": {"required": rf"(^|\n)\s*({alt})[^\n]*\s*$"}}
+        if line_rule:
+            return {"type": "final_message", "params": {"required": rf"(^|\n)\s*({alt})"}}
         if re.search(r"\bstart", t):
             return {"type": "final_message", "params": {"required": rf"^\s*({alt})"}}
-        if re.search(r"\bend", t) and re.search(r"line (starting|that starts|beginning)", t):
-            return {"type": "final_message", "params": {"required": rf"(^|\n)\s*({alt})[^\n]*\s*$"}}
         if re.search(r"\bend", t):
             return {"type": "final_message", "params": {"required": rf"({alt})\s*$"}}
-        if re.search(r"line (starting|that starts|beginning)|under a line|a line ", t):
-            return {"type": "final_message", "params": {"required": rf"(^|\n)\s*({alt})"}}
         return {"type": "final_message", "params": {"required": re.escape(first)}}
     return None
 
@@ -398,6 +404,7 @@ def fam_content_required(c: Candidate) -> dict[str, Any] | None:
         return None
     spans = _spans(c)
     regex = None
+    spans = [x for x in spans if not re.match(r"^[\w.-]+(/[\w.-]*)+/?$", x)]  # paths say where, not what
     span = next((s for s in spans if "spdx" in s.lower() or "copyright" in s.lower() or "license" in s.lower()), None)
     if span:
         regex = re.escape(span)
@@ -407,7 +414,7 @@ def fam_content_required(c: Candidate) -> dict[str, Any] | None:
         regex = r'^\s*[rRuU]?("""|\'\'\')'
     elif "front matter" in t or "frontmatter" in t:
         field_ = next((s for s in spans if s.endswith(":")), None)
-        regex = rf"^---\s*\n(.*\n)*?{re.escape(field_)}" if field_ else r"^---\s*\n"
+        regex = rf"^\s*{re.escape(field_)}\s*\S" if field_ else r"^---\s*$"
     elif re.search(r"\bh1\b|single h1|# heading|top-level heading", t):
         regex = r"^# \S"
     elif spans:
@@ -430,8 +437,8 @@ def fam_content_required(c: Candidate) -> dict[str, Any] | None:
                 globs = ["**/*"]
     if re.search(r"\.(rs)\b|rust", t):
         globs = ["**/*.rs"]
-    if re.search(r"\bscripts?\b", t) and "scripts/" not in c.raw:
-        globs = ["scripts/**"] if "script" in t and globs == ["**/*"] else globs
+    if re.search(r"\bscripts?\b", t) and "scripts/" not in c.raw and globs == ["**/*"]:
+        globs = ["**/*.py", "**/*.sh", "**/*.mjs", "**/*.js", "**/*.ts"]
     dirs = [d for d in _dirs_in_text(c)]
     if dirs:
         globs = _scoped(globs, dirs)
@@ -567,7 +574,10 @@ _OWN_LOCK = {
     "uv": "uv.lock",
     "pipenv": "Pipfile.lock",
 }
-_PM_RE = re.compile(r"\b(npm|npx|yarn|pnpm|bunx?|pip3?|poetry|pipenv|conda|mamba|uv|easy_install)\b", re.IGNORECASE)
+_PM_RE = re.compile(
+    r"\b(npm|npx|yarn|pnpm|bunx?|pip3?|poetry|pipenv|conda|mamba|uv|easy_install)\b(?![-.](lock|workspace|yaml|json|toml))",
+    re.IGNORECASE,
+)
 
 
 def _segment_pattern(cmd: str) -> str:
@@ -595,7 +605,11 @@ def fam_command_forbidden(c: Candidate) -> dict[str, Any] | None:
     if mentions:
         positive: list[str] = []
         negative: list[str] = []
-        for clause in re.split(r"[;.]\s+|,\s+(?=never|not|don|do not)|\binstead of\b|\brather than\b|\bover\b", raw):
+        splitter = (
+            r"[;.]\s+|,\s+(?=(?:so|but|and\s+(?:never|not|do not|don't)|never|not|don|do not)\b)|\bso\b|"
+            r"\binstead of\b|\brather than\b|\bover\b"
+        )
+        for clause in re.split(splitter, raw):
             cl = clause.lower()
             names = [m.group(1).lower() for m in _PM_RE.finditer(clause)]
             if not names:
@@ -619,11 +633,10 @@ def fam_command_forbidden(c: Candidate) -> dict[str, Any] | None:
             return None
         if not negative and positive:
             eco = _PMS.get(positive[0], {}).get("eco")
-            negative = [
-                pm
-                for pm, info in _PMS.items()
-                if info["eco"] == eco and pm not in positive and pm not in ("npx", "pip3", "easy_install", "mamba")
-            ]
+            skip = {"pip3", "easy_install", "mamba"}
+            if not re.search(r"\bevery\b|\ball\b|\beverything\b|\bany\b", t):
+                skip.add("npx")
+            negative = [pm for pm, info in _PMS.items() if info["eco"] == eco and pm not in positive and pm not in skip]
             if eco == "py" and positive[0] == "pip":
                 negative = [pm for pm in negative if pm != "uv"]
         if not negative:
@@ -790,9 +803,10 @@ def _core_pattern(cmd: str) -> str:
     if words and words[0] in ("npm", "pnpm", "yarn", "bun") and len(words) >= 2:
         script = words[2] if words[1] == "run" and len(words) > 2 else words[1]
         return rf"^{words[0]}\s+(run\s+)?{re.escape(script)}\b"
-    core = words[:3] if words and words[0] in ("go", "cargo", "make", "python", "python3") else words[:2]
-    core = [w for w in core if not w.startswith("-") and w not in (".", "./...")] or words[:1]
-    return "^" + r"\s+".join(re.escape(w) for w in core) + r"\b"
+    # Every word counts ("cargo clippy --all-targets -- -D warnings" is not satisfied by "cargo clippy").
+    core = [w for w in words if w not in (".", "./...", "./")] or words[:1]
+    body = r"\s+".join(re.escape(w) for w in core)
+    return "^" + body + (r"\b" if re.search(r"\w$", core[-1]) else "")
 
 
 def _edit_globs(c: Candidate) -> list[str]:
@@ -877,9 +891,8 @@ _CONSTRUCTS: list[tuple[str, str, str]] = [
     (r"type:\s*ignore", r"#\s*type:\s*ignore", "py"),
     (r"noqa", r"#\s*noqa\b", "py"),
     (r"eslint-disable", r"eslint-disable", "js"),
-    (r"@ts-ignore|@ts-nocheck|@ts-expect-error", r"@ts-(ignore|nocheck|expect-error)\b", "ts"),
-    (r"\btodo\b", r"\bTODO\b", "*"),
-    (r"fixme", r"\bFIXME\b", "*"),
+    (r"@ts-ignore|@ts-nocheck|@ts-expect-error", "@ts-directives", "ts"),
+    (r"\btodo\b|\bfixme\b|\bxxx\b|\bhack\b", "markers", "*"),
     (r"wildcard imports?|import \*", r"^\s*from\s+\S+\s+import\s+\*|import\s+\*\s+as\b", "py"),
     (
         r"test\.skip|it\.skip|describe\.skip|\.skip\b|xit\b",
@@ -887,9 +900,10 @@ _CONSTRUCTS: list[tuple[str, str, str]] = [
         "ts",
     ),
     (r"pytest\.mark\.skip|@skip", r"@pytest\.mark\.skip|@unittest\.skip", "py"),
+    (r"dangerouslysetinnerhtml", r"\bdangerouslySetInnerHTML\b", "ts"),
     (r"document\.write|innerhtml", r"document\.write\s*\(|\.innerHTML\s*=", "js"),
     (r"\.unwrap\(\)|unwrap\b", r"\.unwrap\s*\(\s*\)", "rs"),
-    (r"\bunsafe\b", r"\bunsafe\s*\{|\bunsafe\s+fn\b", "rs"),
+    (r"\bunsafe\b", r"\bunsafe\s*(\{|fn\b|impl\b|trait\b)", "rs"),
     (r"fmt\.print", r"\bfmt\.Print(ln|f)?\s*\(", "go"),
     (r"\bpanic\(", r"\bpanic\s*\(", "go"),
     (r"\bvar\b", r"(^|[^\w.])var\s+\w", "js"),
@@ -930,7 +944,10 @@ def fam_content_forbidden(c: Candidate) -> dict[str, Any] | None:
             code_spans=[s for s in c.code_spans if s.lower() in tail],
         )
         t = tail
-    spans = _spans(c) or re.findall(r'"([^"\s]{2,30})"', c.raw)
+    # Code named in the positive part ("...; use tracing", "use logx instead") is not forbidden.
+    negative_part = re.split(r"[;.:]\s*(?:use|prefer|instead)\b|,\s*use\b|\binstead\b", c.raw, maxsplit=1)[0]
+    spans = [x for x in _spans(c) if x in negative_part] or _spans(c)
+    quoted_words = re.findall(r'"([^"\s]{2,30})"', c.raw)
     regex = None
     lang = "*"
     for trigger, rx, lng in _CONSTRUCTS:
@@ -947,6 +964,12 @@ def fam_content_forbidden(c: Candidate) -> dict[str, Any] | None:
             regex, lang = rx, lng
             if trigger == r"\bany\b" and re.search(r"console", hay):
                 continue
+            if rx == "@ts-directives":
+                names = sorted(set(re.findall(r"@ts-(ignore|nocheck|expect-error)", hay)))
+                regex = r"@ts-(" + "|".join(names) + r")\b"
+            elif rx == "markers":
+                names = [m.upper() for m in ("todo", "fixme", "xxx", "hack") if re.search(rf"\b{m}\b", hay)]
+                regex = r"\b(" + "|".join(names) + r")\b"
             break
     if regex is None:
         code = [
@@ -957,17 +980,24 @@ def fam_content_forbidden(c: Candidate) -> dict[str, Any] | None:
             and not re.match(r"^[\w-]+/[\w/-]*$", s)
             and not re.match(r"^(git|npm|pnpm|yarn|pip|uv|poetry|make|cargo|go|docker|python3?)\b", s)
         ]
-        if not code or not (
-            prefer
-            or re.search(
-                r"\b(use|uses|add|call|calls|write|leave|import|commit|put|introduce|"
-                r"silence|skip|avoid|never|no|place|assign)\b",
-                t,
+        if not code and quoted_words:
+            regex = r"(?i)\b(" + "|".join(re.escape(w) for w in quoted_words) + r")\b"
+            lang = "*"
+        if regex is None and (
+            not code
+            or not (
+                prefer
+                or re.search(
+                    r"\b(use|uses|add|call|calls|write|leave|import|commit|put|introduce|"
+                    r"silence|skip|avoid|never|no|place|assign)\b",
+                    t,
+                )
             )
         ):
             return None
-        regex = "|".join(re.escape(x) for x in code)
-        lang = "*"
+        if regex is None:
+            regex = "|".join(_code_regex(x) for x in code)
+            lang = "*"
     globs = list(_EXT_LANG.get(lang, ["**"])) if lang != "*" else _lang_globs(c.text, spans)
     if lang == "js" and re.search(r"typescript|\.ts\b|tsx", t):
         globs = ["**/*.ts", "**/*.tsx"]
@@ -975,6 +1005,21 @@ def fam_content_forbidden(c: Candidate) -> dict[str, Any] | None:
     if dirs:
         globs = _scoped(globs, dirs)
     return {"type": "content_forbidden_added", "params": {"regex": regex, "globs": globs}}
+
+
+def _code_regex(code: str) -> str:
+    """A regex for a code fragment named in a rule: `foo()` matches calls, `...` is a wildcard, words get bounds."""
+    text = code.strip()
+    if text.endswith("()"):
+        return re.escape(text[:-2]) + r"\s*\("
+    parts = [re.escape(p) for p in re.split(r"\.\.\.|…", text)]
+    rx = r".*?".join(parts)
+    rx = re.sub(r"(\\ )+", r"\\s*", rx)
+    if re.match(r"^\w", text):
+        rx = r"\b" + rx
+    if re.search(r"\w$", text):
+        rx += r"\b"
+    return rx
 
 
 FAMILIES: list[Family] = [
@@ -1051,13 +1096,58 @@ def classify(c: Candidate) -> tuple[str, dict[str, Any] | None, str | None]:
     return "uncheckable", None, "no deterministic pattern matched; review or rephrase"
 
 
-def extract(files: Iterable[InstructionFile]) -> list[Extracted]:
+_GLOB_KEYS = ("globs", "when", "require", "edit_globs")
+
+
+def _base_dir(f: InstructionFile) -> str:
+    """The directory a nested instruction file speaks for ("" at the root and for path-scoped rule files)."""
+    if (
+        f.kind in ("agents_md", "claude_md", "gemini_md", "claude_local_md", "claude_import")
+        and len(f.scope_paths) == 1
+    ):
+        scope = f.scope_paths[0]
+        if scope.endswith("/**") and scope != "**":
+            return scope[:-3]
+    return ""
+
+
+def _rebase(glob: str, base: str, top_dirs: set[str] | None) -> str:
+    if base:
+        if glob.startswith(base + "/"):
+            return glob
+        if glob.startswith("**/"):
+            return f"{base}/{glob}"
+        if "/" not in glob:
+            return f"{base}/**/{glob}"
+        return f"{base}/{glob}"
+    if top_dirs is not None and "/" in glob and not glob.startswith(("**", "*")):
+        first = glob.split("/", 1)[0]
+        if first not in top_dirs:
+            return f"**/{glob}"  # "internal/pb/" in a monorepo root file means any service's internal/pb
+    return glob
+
+
+def extract(files: Iterable[InstructionFile], root: Any = None) -> list[Extracted]:
+    from pathlib import Path
+
+    from obey_cli.discover import list_files
+
+    top_dirs: set[str] | None = None
+    if root is not None:
+        listed = list_files(Path(root))
+        top_dirs = {p.split("/", 1)[0] for p in listed if "/" in p}
     out: list[Extracted] = []
     for f in files:
+        base = _base_dir(f)
         for cand in f.parsed.candidates:
             if not is_rule(cand):
                 continue
             status, checker, reason = classify(cand)
+            if checker is not None:
+                params = checker["params"]
+                for key in _GLOB_KEYS:
+                    if isinstance(params.get(key), list):
+                        params[key] = list(dict.fromkeys(_rebase(g, base, top_dirs) for g in params[key]))
             out.append(Extracted(candidate=cand, file=f, status=status, checker=checker, reason=reason))
     return out
 
