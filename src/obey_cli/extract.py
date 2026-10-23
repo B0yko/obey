@@ -870,6 +870,13 @@ def fam_path_forbidden(c: Candidate) -> dict[str, Any] | None:
             t,
         )
     )
+    # Paths named as the source to change ("change `openapi.yaml` and regenerate") are not forbidden.
+    sources = {
+        m.group(1)
+        for m in re.finditer(r"\b(?:change|edit|update|from|in)\s+`([^`]+)`\s*,?\s+(?:and|then|instead)\b", c.raw, re.I)
+    }
+    sources |= {m.group(1) for m in re.finditer(r"\bfrom\s+`([^`]+)`", c.raw, re.I)}
+    paths = [x for x in paths if x not in sources] or paths
     globs = [_glob(p) for p in paths if not re.match(r"^(go|npm|pnpm|uv|python|make|cargo)\b", p)]
     globs = [g for g in globs if not g.endswith((".py/**",)) and g not in ("**",)]
     if re.search(r"run `|regenerat|produced by|instead", t) and len(globs) > 1:
@@ -883,6 +890,10 @@ def fam_path_forbidden(c: Candidate) -> dict[str, Any] | None:
     params: dict[str, Any] = {"globs": globs}
     if existing:
         params["existing_only"] = True
+    # "regenerate them with `node scripts/gen.mjs`": the generator may change the paths.
+    gen = re.search(r"\b(regenerat\w*|generat\w* (?:by|with|from)|produced by|run)\b[^`]{0,40}`([^`]+)`", c.raw, re.I)
+    if gen and re.match(r"^[a-z][\w.-]*(\s+[\w./:=-]+)*$", gen.group(2)) and not gen.group(2).endswith("/"):
+        params["allow_via"] = [_segment_pattern(gen.group(2))]
     return {"type": "path_forbidden", "params": params}
 
 

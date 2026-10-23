@@ -31,7 +31,8 @@
            "require_success": {"type": "boolean"}}}}}},
         {"if": {"properties": {"type": {"const": "path_forbidden"}}},
          "then": {"properties": {"params": {"required": ["globs"], "additionalProperties": false, "properties": {
-           "globs": {"$ref": "#/$defs/globs", "minItems": 1}, "existing_only": {"type": "boolean"}}}}}},
+           "globs": {"$ref": "#/$defs/globs", "minItems": 1}, "existing_only": {"type": "boolean"},
+           "allow_via": {"type": "array", "items": {"$ref": "#/$defs/regex"}}}}}}},
         {"if": {"properties": {"type": {"const": "path_required_with"}}},
          "then": {"properties": {"params": {"required": ["when", "require"], "additionalProperties": false,
            "properties": {"when": {"$ref": "#/$defs/globs"}, "require": {"$ref": "#/$defs/globs"}}}}}},

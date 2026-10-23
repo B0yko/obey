@@ -985,6 +985,11 @@ def _check_path_forbidden(params: Dict[str, Any], run: Dict[str, Any]) -> Dict[s
     existing_only = bool(params.get("existing_only"))
     base = set(run.get("base_files") or [])
     exercised = False
+    # Changes made by an allowed command (a generator) are fine; direct edits still violate.
+    allow_via = list(params.get("allow_via") or [])
+    via = allow_via and any(
+        ev.get("exit_code") in (0, None) and matches_command(allow_via, seg) for _, ev, seg in _executed_shell(run)
+    )
     for seq, raw_path, op in _file_events(run):
         path = _norm_path(raw_path)
         if path == "*" or not glob_match(globs, path):
@@ -998,6 +1003,8 @@ def _check_path_forbidden(params: Dict[str, Any], run: Dict[str, Any]) -> Dict[s
         if not hits:
             continue
         exercised = True
+        if via:
+            continue
         if existing_only:
             if f["status"] == "added":
                 continue
@@ -1031,7 +1038,8 @@ def _check_path_required_with(params: Dict[str, Any], run: Dict[str, Any]) -> Di
 def _check_dependency(params: Dict[str, Any], run: Dict[str, Any]) -> Dict[str, Any]:
     manifests = list(params.get("manifests") or DEFAULT_MANIFESTS)
     allow = {_norm_pkg(a) for a in params.get("allow") or []}
-    exercised = any(glob_match(manifests, f["path"]) for f in _changed(run))
+    # Any change counts as exercising the rule: a run that did the task without adding a package obeyed it.
+    exercised = bool(_changed(run)) or any(glob_match(manifests, f["path"]) for f in _changed(run))
     for seq, ev, seg in _executed_shell(run):
         is_install, names = install_packages(seg)
         if not is_install:

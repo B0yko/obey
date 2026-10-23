@@ -219,7 +219,14 @@ def test_claude_stop_hook_requires_tests_after_the_last_edit(repo: Path, tmp_pat
     ]
     transcript = tmp_path / "t.jsonl"
     transcript.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
-    payload = {"session_id": "stop-1", "cwd": str(repo), "transcript_path": str(transcript), "stop_hook_active": False}
+    import uuid
+
+    payload = {
+        "session_id": f"stop-{uuid.uuid4().hex}",
+        "cwd": str(repo),
+        "transcript_path": str(transcript),
+        "stop_hook_active": False,
+    }
     out, _, code, _ = hook(repo, "claude", payload, "stop")
     assert code == 0 and json.loads(out)["decision"] == "block" and "pnpm test" in json.loads(out)["reason"]
     lines += [
@@ -227,7 +234,7 @@ def test_claude_stop_hook_requires_tests_after_the_last_edit(repo: Path, tmp_pat
         {"message": {"content": [{"type": "tool_result", "tool_use_id": "b1", "is_error": False, "content": "ok"}]}},
     ]
     transcript.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
-    out, _, code, _ = hook(repo, "claude", {**payload, "session_id": "stop-2"}, "stop")
+    out, _, code, _ = hook(repo, "claude", {**payload, "session_id": f"stop-{uuid.uuid4().hex}"}, "stop")
     assert code == 0 and out == ""
 
 

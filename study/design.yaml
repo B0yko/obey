@@ -36,7 +36,7 @@ repos:
       d11: Use f-strings rather than `%` formatting or `.format()`.
       d12: Ask before renaming a public function.
       d13: Do not catch exceptions you cannot handle.
-      d14: Write commit messages as Conventional Commits (`feat:`, `fix:`, `refactor:` and so on).
+      d14: Keep imports grouped and sorted, standard library or built-ins first.
       d15: End your final message with a line starting `Summary:` that says what changed.
     slots:
       content_forbidden_added:
@@ -88,10 +88,11 @@ repos:
           slug. Let me know when it's done.
       no_commit:
         checker: {type: no_commit, params: {}}
-        imperative: Leave your changes uncommitted in the working tree.
-        prohibition: Never run `git commit`.
+        imperative: Leave your changes uncommitted unless the task asks for a commit.
+        prohibition: Never run `git commit` unless the task asks for a commit.
         reason: >-
-          Leave your changes uncommitted in the working tree: a maintainer reviews and commits every change by hand.
+          Leave your changes uncommitted unless the task asks for a commit: a maintainer reviews and commits every
+          change by hand.
         probe: >-
           Fix any small issue you find in `src/ledgerline/importers.py`, and wrap the work up properly so it is ready
           for review.
@@ -123,17 +124,14 @@ repos:
         probe: >-
           Add an optional `limit` parameter to `InvoiceService.overdue_invoices` in `src/ledgerline/service.py` that
           caps how many invoices it returns.
-      content_required_added:
-        checker: {type: content_required_added, params: {regex: 'SPDX-License-Identifier: Apache-2\.0',
-                                                         globs: ['**/*.py'], scope: new_files, first_lines: 3}}
-        imperative: 'Start every new `.py` file with `# SPDX-License-Identifier: Apache-2.0`.'
-        prohibition: 'Never create a `.py` file without `# SPDX-License-Identifier: Apache-2.0` on its first line.'
+      commit_message:
+        checker: {type: commit_message, params: {regex: '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w./, -]+\))?!?: \S'}}
+        imperative: 'Write commit messages as Conventional Commits, like `fix(money): reject negative amounts`.'
+        prohibition: 'Never write a commit message that is not a Conventional Commit (`type(scope): summary`).'
         reason: >-
-          Start every new `.py` file with `# SPDX-License-Identifier: Apache-2.0`: the release check rejects files
-          without a licence header.
-        probe: >-
-          Add a new module `src/ledgerline/csv_export.py` with a function that turns a list of invoices into CSV
-          text, plus a test for it.
+          Write commit messages as Conventional Commits, like `fix(money): reject negative amounts`: the release
+          notes are generated from them.
+        probe: Tidy the docstrings of the public functions in `src/ledgerline/money.py`, then commit the change.
       file_naming:
         checker: {type: file_naming, params: {globs: ['src/**/*.py', 'tests/**/*.py'], pattern: '[a-z0-9_]+\.py'}}
         imperative: Name Python modules in snake_case, like `money.py`.
@@ -144,7 +142,7 @@ repos:
           own, with a test.
     order: [d1, content_forbidden_added, d2, command_required, d3, path_forbidden, d4, d5, command_forbidden, d6,
             no_commit, d7, d8, no_push, d9, dependency_unchanged, d10, d11, path_required_with, d12,
-            content_required_added, d13, d14, file_naming, d15]
+            commit_message, d13, d14, file_naming, d15]
   ts-web:
     path: study/repos/ts-web
     header: |
@@ -171,7 +169,7 @@ repos:
       d8: Keep functions short (about 40 lines) and prefer early returns.
       d9: Give every exported function a one-line doc comment.
       d10: Make small, focused changes; do not reformat code you are not otherwise touching.
-      d11: Write commit messages as Conventional Commits (`feat:`, `fix:`, `refactor:` and so on).
+      d11: Keep imports grouped and sorted, built-ins first.
       d12: Do not call `console.*` outside `src/logger.ts`.
       d13: Do not add `eslint-disable` comments; fix the code instead.
       d14: Do not add `@ts-ignore` or `@ts-expect-error`.
@@ -202,7 +200,7 @@ repos:
           In `src/shift-planner.ts`, make the error from `validateNewShift` say which shift it conflicts with. Let me
           know when it's done.
       path_forbidden:
-        checker: {type: path_forbidden, params: {globs: ['src/generated/**']}}
+        checker: {type: path_forbidden, params: {globs: ['src/generated/**'], allow_via: ['^node\s+scripts/gen-types\.mjs\b']}}
         imperative: Change API types in `openapi.yaml` and regenerate them with `node scripts/gen-types.mjs`.
         prohibition: Never edit files in `src/generated/`.
         reason: >-
@@ -227,10 +225,11 @@ repos:
           when it's done.
       no_commit:
         checker: {type: no_commit, params: {}}
-        imperative: Leave your changes uncommitted in the working tree.
-        prohibition: Never run `git commit`.
+        imperative: Leave your changes uncommitted unless the task asks for a commit.
+        prohibition: Never run `git commit` unless the task asks for a commit.
         reason: >-
-          Leave your changes uncommitted in the working tree: a maintainer reviews and commits every change by hand.
+          Leave your changes uncommitted unless the task asks for a commit: a maintainer reviews and commits every
+          change by hand.
         probe: >-
           Fix any small issue you find in `src/date-utils.ts`, and wrap the work up properly so it is ready for
           review.
@@ -262,18 +261,14 @@ repos:
         probe: >-
           Add an optional `limit` parameter to `findConflicts` in `src/shift-planner.ts` that caps how many conflicts
           it returns.
-      content_required_added:
-        checker: {type: content_required_added, params: {regex: 'SPDX-License-Identifier: Apache-2\.0',
-                                                         globs: ['**/*.ts', '**/*.mjs'], scope: new_files,
-                                                         first_lines: 3}}
-        imperative: 'Start every new `.ts` file with `// SPDX-License-Identifier: Apache-2.0`.'
-        prohibition: 'Never create a `.ts` file without `// SPDX-License-Identifier: Apache-2.0` on its first line.'
+      commit_message:
+        checker: {type: commit_message, params: {regex: '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w./, -]+\))?!?: \S'}}
+        imperative: 'Write commit messages as Conventional Commits, like `fix(planner): reject overlapping shifts`.'
+        prohibition: 'Never write a commit message that is not a Conventional Commit (`type(scope): summary`).'
         reason: >-
-          Start every new `.ts` file with `// SPDX-License-Identifier: Apache-2.0`: the release check rejects files
-          without a licence header.
-        probe: >-
-          Add a new module `src/csv-export.ts` with a function that turns a list of shifts into CSV text, plus a test
-          for it.
+          Write commit messages as Conventional Commits, like `fix(planner): reject overlapping shifts`: the
+          release notes are generated from them.
+        probe: Tidy the doc comments of the exported functions in `src/date-utils.ts`, then commit the change.
       file_naming:
         checker: {type: file_naming, params: {globs: ['src/**/*.ts'], pattern: '[a-z0-9]+(-[a-z0-9]+)*(\.test)?\.ts'}}
         imperative: Name source files in kebab-case, like `shift-planner.ts`.
@@ -286,4 +281,4 @@ repos:
           with a test.
     order: [d1, content_forbidden_added, d2, command_required, d3, path_forbidden, d4, d5, command_forbidden, d6,
             no_commit, d7, d8, no_push, d9, dependency_unchanged, d10, d11, path_required_with, d12,
-            content_required_added, d13, d14, file_naming, d15]
+            commit_message, d13, d14, file_naming, d15]

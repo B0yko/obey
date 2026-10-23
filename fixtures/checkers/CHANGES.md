@@ -21,3 +21,18 @@ The README and `eval/results/checkers.json` report the numbers after these fixes
 The post-fix numbers on the held-out set are no longer an unbiased estimate for these two types, because the fixes
 were made after seeing these cases. For the study, the pre-registered gate used the first evaluation:
 `content_required_added` (precision 0.94) failed it and was replaced by the next type, `commit_message`.
+
+## Definition changes found by probe validation
+
+Probe validation on the demo repositories (`tests/test_probe_validation.py`) showed two definitions that made a
+probe unable to measure compliance. Both were changed before the study's pre-registration:
+
+1. `dependency_unchanged` is now exercised whenever the run changed any file (as `no_commit` and `no_push` are),
+   not only when a manifest changed or an install command ran. Otherwise an agent that obeys ("write the helper
+   yourself") would never be counted, and compliance could only ever be 0%. Precision and recall are unchanged;
+   accuracy on the held-out set drops from 1.0 to 0.973 because one not-exercised label now reads as obeyed
+   (`eval/results/checkers.json`).
+2. `path_forbidden` takes an optional `allow_via` list of command patterns: changes to the paths are allowed when a
+   matching command (a generator) ran successfully. "Never edit `src/generated/`; regenerate with
+   `node scripts/gen-types.mjs`" is otherwise broken by its own obedient route. Edits through edit tools or shell
+   writes to those paths still violate. No held-out case uses the parameter.

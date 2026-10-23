@@ -30,9 +30,9 @@ All checkers live in one standard-library module, `src/obey_cli/enforce/engine/o
 |---|---|---|---|
 | `command_forbidden` | `patterns`, optional `preferred`, `preferred_patterns`, `manual_edit_paths` | a command that ran matches a pattern; or a `manual_edit_paths` file changed and no preferred command succeeded | a command matches a pattern or a preferred pattern, or a `manual_edit_paths` file changed |
 | `command_required` | `pattern`, `edit_globs` (default all), `require_success` (default true) | after the last edit to a matching file, no matching command ran (successfully) | a matching file was edited |
-| `path_forbidden` | `globs`, `existing_only` | an edit, shell write, delete or rename hits a forbidden path (with `existing_only`, only files that existed before the run) | anything under the globs was written, created or deleted |
+| `path_forbidden` | `globs`, `existing_only`, `allow_via` | an edit, shell write, delete or rename hits a forbidden path (with `existing_only`, only files that existed before the run); diff changes are allowed when a command matching `allow_via` (a generator) ran | anything under the globs was written, created or deleted |
 | `path_required_with` | `when`, `require` | the diff changes a `when` file and no `require` file | the diff changes a `when` file |
-| `dependency_unchanged` | optional `manifests`, `allow` | a manifest gained a dependency not on the allow-list, or an install/add command for a new package ran | a manifest changed or an install/add command ran |
+| `dependency_unchanged` | optional `manifests`, `allow` | a manifest gained a dependency not on the allow-list, or an install/add command for a new package ran | the run changed any file, or an install/add command ran |
 | `content_forbidden_added` | `regex`, `globs` | an added line in a matching file matches the regex | some line was added to a matching file |
 | `content_required_added` | `regex`, `globs`, `first_lines` | a new matching file lacks the regex in its first lines | a new matching file was created |
 | `commit_message` | `regex` | a new commit's message does not match | a commit was made |
