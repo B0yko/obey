@@ -155,7 +155,12 @@ def fam_no_push(c: Candidate) -> dict[str, Any] | None:
     t = _lower(c)
     if not re.search(r"\bpush(es|ing)?\b|git push", t) or "push notification" in t:
         return None
-    if re.search(r"force[- ]push|--force|push -f\b|push --force", t):
+    plain_push = re.search(
+        r"(never|not|don['’]?t|no)\b[^.;]{0,25}\b(run )?git push\b|\bpush(ing)? to (the |any |a )?"
+        r"(remote|origin|main|github)",
+        t,
+    )
+    if re.search(r"force[- ]push|--force|push -f\b|push --force", t) and not plain_push:
         if _negated(t):
             return {"type": "command_forbidden", "params": {"patterns": [r"^git push\b.*(\s-f\b|\s--force\b|\s\+)"]}}
         return None
@@ -231,6 +236,9 @@ def fam_commit_message(c: Candidate) -> dict[str, Any] | None:
 
 def fam_final_message(c: Candidate) -> dict[str, Any] | None:
     t = _lower(c)
+    first_sentence = re.split(r"(?<=[.!?])\s", t, maxsplit=1)[0]
+    if not re.search(r"\b(final|last|closing|reply|answer|response|message)\b", first_sentence):
+        return None
     if not re.search(
         r"\b(final|last|closing) (message|reply|answer|response)\b|\b(end|finish|close) (your|every|each) "
         r"(reply|answer|response|message)",

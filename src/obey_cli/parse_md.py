@@ -42,7 +42,7 @@ _TABLE_RE = re.compile(r"^\s*\|(.*)\|\s*$")
 _TABLE_SEP_RE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`*_\"'(])")
 _CODE_SPAN_RE = re.compile(r"`([^`]+)`")
-_EMPHASIS_RE = re.compile(r"(\*\*|__|\*|_)(\S(?:.*?\S)?)\1")
+_EMPHASIS_RE = re.compile(r"(\*\*|(?<!\w)__|\*|(?<!\w)_)(\S(?:.*?\S)?)\1(?!\w)")
 _LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 _IMPORT_RE = re.compile(r"(?:(?<=\s)|^)@((?:~/|\.{1,2}/|[\w])[\w./~-]*[\w/])")
@@ -100,12 +100,19 @@ def _loose_frontmatter(raw: str) -> dict[str, Any]:
 
 
 def plain(text: str) -> str:
-    """Strip inline Markdown while keeping code-span content."""
+    """Strip inline Markdown while keeping code-span content (`snake_case` keeps its underscore)."""
+    spans: list[str] = []
+
+    def stash(m: re.Match[str]) -> str:
+        spans.append(m.group(1))
+        return f"\x00{len(spans) - 1}\x00"
+
     out = _LINK_RE.sub(r"\1", text)
-    out = _CODE_SPAN_RE.sub(r"\1", out)
+    out = _CODE_SPAN_RE.sub(stash, out)
     for _ in range(2):
         out = _EMPHASIS_RE.sub(r"\2", out)
     out = re.sub(r"<[^>]+>", "", out)
+    out = re.sub("\x00(\\d+)\x00", lambda m: spans[int(m.group(1))], out)
     return re.sub(r"\s+", " ", out).strip()
 
 
