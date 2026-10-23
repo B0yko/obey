@@ -15,10 +15,17 @@ _PACKAGE = Path(__file__).resolve().parent
 _REPO_ROOT = _PACKAGE.parent.parent
 
 
+# In a source checkout the demo repository is the study's TypeScript repository.
+_SOURCE_ALIASES = {("demo", "repo"): ("study", "repos", "ts-web")}
+
+
 def data_path(*parts: str) -> Path:
     installed = _PACKAGE.joinpath("_data", *parts)
     if installed.exists():
         return installed
+    for alias, target in _SOURCE_ALIASES.items():
+        if parts[: len(alias)] == alias:
+            return _REPO_ROOT.joinpath(*target, *parts[len(alias) :])
     return _REPO_ROOT.joinpath(*parts)
 
 

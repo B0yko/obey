@@ -48,6 +48,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/obey_cli"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"schemas" = "obey_cli/_data/schemas"
+"demo" = "obey_cli/_data/demo"
+"study/repos/ts-web" = "obey_cli/_data/demo/repo"
+
 [tool.hatch.build.targets.sdist]
 exclude = ["/.github", "/study/results/raw"]
 

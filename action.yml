@@ -1,0 +1,70 @@
+name: obey
+description: Unit tests for AGENTS.md. Lint the rules in your agent instruction files, or run your coding agent on them.
+author: Andrii Boiko
+branding:
+  icon: check-square
+  color: green
+inputs:
+  mode:
+    description: "lint (default: no agent runs, no secrets) or run (needs an API key secret and a budget)"
+    default: lint
+  working-directory:
+    description: Repository directory to check
+    default: "."
+  obey-version:
+    description: obey version to install (a git tag of github.com/B0yko/obey)
+    default: v0.1.0
+  agent:
+    description: "run mode: agent to run (claude-code, codex, opencode, copilot, gemini)"
+    default: claude-code
+  model:
+    description: "run mode: model id at your provider, for example anthropic/claude-haiku-5.5"
+    default: ""
+  budget:
+    description: "run mode: USD cap enforced by obey's ledger"
+    default: "2"
+  trials:
+    description: "run mode: runs per probe"
+    default: "3"
+  api-key:
+    description: "run mode: OpenRouter (or OpenAI-compatible) API key, from a secret. Never used in lint mode."
+    default: ""
+outputs:
+  badge:
+    description: Path of the shields.io endpoint JSON written by obey
+    value: ${{ inputs.working-directory }}/obey-badge.json
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        enable-cache: false
+    - name: obey lint
+      if: inputs.mode == 'lint'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        OBEY_VERSION: ${{ inputs.obey-version }}
+      run: uvx --from "git+https://github.com/B0yko/obey@${OBEY_VERSION}" obey lint
+    - name: Refuse run mode on pull requests
+      if: inputs.mode == 'run' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+      shell: bash
+      run: |
+        echo "obey run mode is allowed only on workflow_dispatch or schedule: it spends API budget and needs a secret." >&2
+        exit 1
+    - name: obey run
+      if: inputs.mode == 'run' && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        OBEY_VERSION: ${{ inputs.obey-version }}
+        OPENROUTER_API_KEY: ${{ inputs.api-key }}
+        OBEY_AGENT: ${{ inputs.agent }}
+        OBEY_MODEL: ${{ inputs.model }}
+        OBEY_BUDGET: ${{ inputs.budget }}
+        OBEY_TRIALS: ${{ inputs.trials }}
+      run: |
+        uvx --from "git+https://github.com/B0yko/obey@${OBEY_VERSION}" obey doctor --build-image
+        uvx --from "git+https://github.com/B0yko/obey@${OBEY_VERSION}" obey run \
+          --agent "$OBEY_AGENT" --model "$OBEY_MODEL" --budget "$OBEY_BUDGET" --trials "$OBEY_TRIALS"

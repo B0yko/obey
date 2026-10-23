@@ -146,6 +146,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("init", "extract rules and create probes in one step", c.cmd_init)
 
+    p = add("demo", "replay recorded runs on the bundled demo repository (no API key, no Docker)", c.cmd_demo)
+    p.add_argument("--html", default=None, metavar="PATH", help="also write the HTML report here")
+
     p = add("study", "reproduce the study: survey, run (pilot, main, enforce), plan, report", c.cmd_study)
     p.add_argument("study_command", choices=["survey", "run", "plan", "report"])
     p.add_argument("--collect", action="store_true", help="survey: sample repositories (needs GITHUB_TOKEN)")

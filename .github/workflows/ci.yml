@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - run: uv sync --python 3.12
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.10", "3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - run: uv sync --python "${{ matrix.python }}"
+      - run: uv run pytest -q
+      - name: Evaluation sets (extraction and checkers)
+        run: uv run python eval/run_eval.py --no-write > /dev/null
+
+  hooks-python39:
+    # Generated hooks and the vendored rule engine must run on any python3 >= 3.9 with the standard library only.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        id: py39
+        with:
+          python-version: "3.9"
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - run: uv sync --python 3.12
+      - name: Hook contract tests with Python 3.9 running the hooks
+        env:
+          OBEY_HOOK_PYTHON: ${{ steps.py39.outputs.python-path }}
+        run: uv run pytest -q tests/test_hooks.py
+      - name: Engine imports and checks on Python 3.9
+        env:
+          PY39: ${{ steps.py39.outputs.python-path }}
+        run: |
+          "$PY39" -I -c "import sys; sys.path.insert(0, 'src/obey_cli/enforce/engine'); import obey_engine as e; \
+          r = {'type': 'command_forbidden', 'params': {'patterns': ['^npm\\\\b']}}; \
+          assert e.check(r, {'events': [{'type': 'shell', 'command': 'bash -c \"npm i x\"'}]})['verdict'] == 'violated'"
+
+  wheel:
+    # The installed package must work outside the source tree: demo data, schemas and hook templates ship inside it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - run: uv build
+      - name: Install the wheel into a clean environment and run it from elsewhere
+        run: |
+          cd "$RUNNER_TEMP"
+          uv venv --python 3.12 clean
+          uv pip install --python clean/bin/python "$GITHUB_WORKSPACE"/dist/*.whl
+          clean/bin/obey --version
+          clean/bin/obey demo
+          clean/bin/python -I -c "from obey_cli.resources import schema, data_path; \
+          [schema(n) for n in ('report-v1.json', 'obey-config-v1.json', 'survey-record-v1.json')]; \
+          assert data_path('demo', 'runs', 'before.jsonl').exists(); assert data_path('demo', 'repo', 'AGENTS.md').exists()"
+          cp -R "$(clean/bin/python -I -c 'from obey_cli.resources import data_path; print(data_path("demo", "repo"))')" demo-repo
+          cd demo-repo && git init -q && git add -A && "$RUNNER_TEMP"/clean/bin/obey init && "$RUNNER_TEMP"/clean/bin/obey lint
+
+  workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - name: zizmor
+        run: uvx zizmor@1.31.1 --min-severity low .github/workflows action.yml
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color

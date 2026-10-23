@@ -564,3 +564,92 @@ def _study_plan(args: argparse.Namespace, root: Path) -> int:
     (root / "study" / "results" / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
     out(json.dumps(plan, indent=2))
     return 0
+
+
+# --------------------------------------------------------------------------------------------- demo
+
+
+def _read_runs(path: Path) -> list[dict[str, Any]]:
+    import gzip
+
+    if not path.exists():
+        return []
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
+
+
+def _cut(text: str, width: int) -> str:
+    text = " ".join(str(text).split())
+    return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def cmd_demo(args: argparse.Namespace) -> int:
+    """Replay recorded study runs on the bundled demo repository: no API key, no Docker."""
+    from obey_cli.report import build_report, render_html
+    from obey_cli.resources import data_path
+    from obey_cli.runner.orchestrate import outcomes
+    from obey_cli.score import AGENT_NAMES, score_outcomes
+
+    demo = data_path("demo")
+    config = cfg.load(demo / "obey.yaml")
+    rules = {r["id"]: r for r in config["rules"]}
+    before_runs = _read_runs(demo / "runs" / "before.jsonl.gz")
+    after_runs = _read_runs(demo / "runs" / "after.jsonl.gz")
+    before = score_outcomes(outcomes(before_runs, rules))
+    after = score_outcomes(outcomes(after_runs, rules))
+    meta = json.loads((demo / "runs" / "meta.json").read_text(encoding="utf-8"))
+    report = build_report(
+        config["rules"],
+        before + after,
+        [{"agent": meta["agent"], "version": meta["agent_version"], "model": meta["model"]}],
+        repository=meta["repository"],
+        cost_usd=meta["cost_usd"],
+        runs=meta["runs"],
+        before=before,
+    )
+    name = AGENT_NAMES.get(meta["agent"], meta["agent"])
+    out(
+        f"obey demo: {len(before_runs) + len(after_runs)} recorded runs of {name} {meta['agent_version']} with "
+        f"{meta['model']} on {meta['repository']} ({meta['dates']}), replayed and re-scored now."
+    )
+    out("Probe compliance: obeyed ÷ exercised runs on tempting tasks, Wilson 95% interval.")
+    out("")
+    out(f"{'Rule (AGENTS.md)':58s} {'Compliance':>17s} {'No rule':>9s} {'Exercised':>9s}")
+    base = {s.rule_id: s for s in before if s.arm == "baseline"}
+    for s in sorted((s for s in before if s.arm == "rule"), key=lambda s: (s.compliance is None, s.compliance or 0)):
+        rule = rules[s.rule_id]
+        comp = (
+            "never exercised"
+            if s.compliance is None
+            else (f"{s.compliance * 100:3.0f}% [{(s.ci_low or 0) * 100:2.0f}–{(s.ci_high or 0) * 100:3.0f}]")
+        )
+        b = base.get(s.rule_id)
+        out(
+            f"{_cut(rule['text'], 58):58s} {comp:>17s} {(f'{b.compliance * 100:.0f}%' if b and b.compliance is not None else '–'):>9s} "
+            f"{s.exercised:>4d}/{s.runs:<4d}"
+        )
+    out("")
+    for line in report["summary"]:
+        out(line + ".")
+    cmp = report.get("compare") or {}
+    rows = [r for r in cmp.get("rows", []) if r["after"] is not None]
+    if rows:
+        out("")
+        out("With hooks from `obey enforce` (same probes, same agent):")
+        out(f"{'Rule':58s} {'Before':>7s} {'After':>7s} {'Blocked':>8s} {'Evasions':>9s}")
+        for r in rows:
+            out(
+                f"{_cut(rules[r['rule_id']]['text'], 58):58s} {r['before'] * 100 if r['before'] is not None else 0:6.0f}% "
+                f"{r['after'] * 100:6.0f}% {r['blocked_runs']:8d} {r['evasions']:9d}"
+            )
+        a, b = cmp["after"], cmp["before"]
+        out(
+            f"Pooled: {(b['compliance'] or 0) * 100:.0f}% → {(a['compliance'] or 0) * 100:.0f}%; "
+            f"{a['evasions']} of {a['blocked_runs']} blocked runs still broke the rule another way."
+        )
+    if args.html:
+        Path(args.html).write_text(render_html(report), encoding="utf-8")
+        out(f"HTML report: {args.html}")
+    out("")
+    out("Your own rules: cd your-repo && obey init && obey run --estimate --model anthropic/claude-haiku-5.5")
+    return 0

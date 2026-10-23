@@ -1,0 +1,13 @@
+- id: obey
+  name: obey (AGENTS.md rules on staged changes)
+  description: Check staged changes against the rules compiled by `obey enforce`.
+  entry: obey precommit
+  language: python
+  pass_filenames: false
+  stages: [pre-commit]
+- id: obey-commit-msg
+  name: obey (commit message rules)
+  description: Check the commit message against the rules compiled by `obey enforce`.
+  entry: obey precommit --commit-msg
+  language: python
+  stages: [commit-msg]
