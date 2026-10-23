@@ -44,10 +44,14 @@ def _first_json_object(text: str) -> Any:
         return json.loads(text)
     except ValueError:
         pass
-    start = text.find("{")
-    end = text.rfind("}")
-    if start >= 0 and end > start:
-        return json.loads(text[start : end + 1])
+    for open_, close in (("{", "}"), ("[", "]")):
+        start = text.find(open_)
+        end = text.rfind(close)
+        if start >= 0 and end > start:
+            try:
+                return json.loads(text[start : end + 1])
+            except ValueError:
+                continue
     raise ValueError("no JSON object in the response")
 
 
@@ -61,8 +65,12 @@ def chat_json(
     run_id: str = "llm",
     max_tokens: int = 2000,
     attempts: int = 2,
+    normalize: Any = None,
 ) -> dict[str, Any]:
-    """Ask for a JSON object and validate it against `schema`; retries once with the validation error."""
+    """Ask for a JSON object and validate it against `schema`; retries once with the validation error.
+
+    `normalize`, when given, maps the parsed JSON (object or array) to the object the schema describes.
+    """
     import httpx
     import jsonschema
 
@@ -105,6 +113,8 @@ def chat_json(
         try:
             content = body["choices"][0]["message"]["content"] or ""
             data = _first_json_object(content)
+            if normalize is not None:
+                data = normalize(data)
             jsonschema.validate(data, schema)
             if not isinstance(data, dict):
                 raise ValueError("top-level JSON value is not an object")

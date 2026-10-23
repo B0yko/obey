@@ -580,10 +580,14 @@ def _segment_pattern(cmd: str) -> str:
 def fam_command_forbidden(c: Candidate) -> dict[str, Any] | None:
     t = _lower(c)
     raw = c.raw
-    if re.search(rf"\b{_EDIT_VERB}\b", t) and (
-        re.search(r"by hand|manually|hand-edit", t)
-        or any(re.search(r"lock(b)?$|\.lock\b|-lock\.", s) for s in _spans(c))
-    ):
+    pm_ban = re.search(
+        rf"\b{NEG}\b[^.;]{{0,15}}\b(run|use|call|invoke)\b[^.;]{{0,12}}\b(npm|npx|yarn|pnpm|pip3?|poetry|bunx?|conda|uv)\b",
+        t,
+    )
+    lock_edit = any(re.search(r"lock(b)?$|\.lock\b|-lock\.", s) for s in _spans(c)) and re.search(
+        rf"\b{_EDIT_VERB}\b", t
+    )
+    if not pm_ban and (re.search(r"by hand|manually|hand-edit|hand edit", t) or lock_edit):
         return None  # "bun.lock MUST NOT be edited by hand" is about a path
     mentions = [m.group(1).lower() for m in _PM_RE.finditer(raw)]
     if not mentions and not re.search(rf"\b{NEG}\b.*`[^`]+`", raw, re.IGNORECASE):
@@ -1104,27 +1108,73 @@ LLM_SYSTEM = (
     "edit_globs?}, path_forbidden{globs, existing_only?}, path_required_with{when:[glob], require:[glob]}, "
     "dependency_unchanged{allow?:[name]}, content_forbidden_added{regex, globs}, content_required_added{regex, globs, "
     "scope:'new_files'}, commit_message{regex}, no_commit{}, no_push{}, file_naming{globs, pattern}, "
-    "final_message{required|forbidden: regex}. Reply with JSON only."
+    "final_message{required|forbidden: regex}. Reply with one JSON object only, exactly in this shape: "
+    '{"rules": [{"index": 0, "checkable": true, "type": "no_push", "params": {}}, '
+    '{"index": 1, "checkable": false, "reason": "needs judgement"}]}'
 )
+
+
+def _normalize_llm(data: Any) -> dict[str, Any]:
+    rows = data if isinstance(data, list) else (data.get("rules") if isinstance(data, dict) else None)
+    if not isinstance(rows, list):
+        return data if isinstance(data, dict) else {}
+    out = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        checker: dict[str, Any] = row["checker"] if isinstance(row.get("checker"), dict) else {}
+        item: dict[str, Any] = {"index": row.get("index", row.get("id")), "checkable": bool(row.get("checkable"))}
+        kind = row.get("type") or checker.get("type")
+        if kind:
+            item["type"] = kind
+            item["params"] = row.get("params") or checker.get("params") or {}
+        if row.get("reason"):
+            item["reason"] = str(row["reason"])
+        out.append(item)
+    return {"rules": out}
+
+
+def llm_classify(
+    texts: Sequence[str], config: Any, ledger: Any = None, run_id: str = "extract-llm"
+) -> list[dict[str, Any] | None]:
+    """One LLM call for a batch of rule texts; returns a checker proposal (or None) per text."""
+    from obey_cli.llm import chat_json
+
+    out: list[dict[str, Any] | None] = [None] * len(texts)
+    if not texts:
+        return out
+    numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(texts))
+    data = chat_json(
+        config,
+        LLM_SYSTEM,
+        numbered,
+        LLM_SCHEMA,
+        ledger=ledger,
+        run_id=run_id,
+        max_tokens=min(12000, 400 + 160 * len(texts)),
+        normalize=_normalize_llm,
+    )
+    for row in data.get("rules", []):
+        idx = row.get("index")
+        if isinstance(idx, int) and 0 <= idx < len(texts) and row.get("checkable") and row.get("type"):
+            out[idx] = {"type": row["type"], "params": row.get("params") or {}}
+    return out
 
 
 def llm_propose(items: Sequence[Extracted], config: Any, ledger: Any = None) -> list[Extracted]:
     """Ask an LLM about rules the patterns left uncheckable. Results are `proposed`, never `active`."""
     from obey_cli.config import validate
-    from obey_cli.llm import chat_json
 
     pending = [x for x in items if x.status == "uncheckable"]
     if not pending:
         return []
-    numbered = "\n".join(f"{i}. {x.candidate.text}" for i, x in enumerate(pending))
-    data = chat_json(config, LLM_SYSTEM, numbered, LLM_SCHEMA, ledger=ledger, run_id="extract-llm", max_tokens=4000)
     proposals: list[Extracted] = []
-    for row in data.get("rules", []):
-        idx = row.get("index")
-        if not isinstance(idx, int) or not 0 <= idx < len(pending) or not row.get("checkable"):
+    for idx, checker_ in enumerate(llm_classify([x.candidate.text for x in pending], config, ledger)):
+        if checker_ is None:
             continue
         base = pending[idx]
-        checker = {"type": row.get("type"), "params": row.get("params") or {}}
+        row = checker_
+        checker = {"type": row["type"], "params": row["params"]}
         candidate = Extracted(
             candidate=base.candidate,
             file=base.file,

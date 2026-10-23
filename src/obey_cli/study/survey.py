@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, field
@@ -212,3 +213,142 @@ def collect(token: str, out: Path, target: int = 600, seed: int = SEED, log: Cal
             if written % 50 == 0:
                 log(f"described {written}/{target}")
     return written
+
+
+# --------------------------------------------------------------------------------------------- analysis
+
+# How each checker type can be enforced (see obey_cli.enforce): "pre_tool" blocks the action before it runs in at
+# least one supported agent; "stop_or_commit" can only stop the agent from finishing or block the commit.
+ENFORCEMENT_ROUTE = {
+    "command_forbidden": "pre_tool",
+    "path_forbidden": "pre_tool",
+    "dependency_unchanged": "pre_tool",
+    "content_forbidden_added": "pre_tool",
+    "content_required_added": "pre_tool",
+    "file_naming": "pre_tool",
+    "commit_message": "pre_tool",
+    "no_commit": "pre_tool",
+    "no_push": "pre_tool",
+    "path_required_with": "stop_or_commit",
+    "command_required": "stop_or_commit",
+    "final_message": "stop_or_commit",
+}
+
+
+def features(text: str) -> dict[str, Any]:
+    """Derived features of one AGENTS.md text: counts only, never the text."""
+    import tempfile
+
+    from obey_cli.discover import discover
+    from obey_cli.extract import extract
+
+    with tempfile.TemporaryDirectory(prefix="obey-survey-") as tmp:
+        root = Path(tmp)
+        (root / "AGENTS.md").write_text(text, encoding="utf-8")
+        files = [f for f in discover(root) if f.path == "AGENTS.md"]
+        items = extract(files)
+        candidates = sum(len(f.parsed.candidates) for f in files)
+    by_type: dict[str, int] = {}
+    for x in items:
+        if x.status == "active" and x.checker:
+            by_type[x.checker["type"]] = by_type.get(x.checker["type"], 0) + 1
+    return {
+        "lines": text.count("\n") + 1,
+        "bytes": len(text.encode("utf-8")),
+        "candidates": candidates,
+        "rules": len(items),
+        "checkable": sum(1 for x in items if x.status == "active"),
+        "uncheckable": sum(1 for x in items if x.status == "uncheckable"),
+        "by_type": by_type,
+        "pre_tool_enforceable": sum(n for t, n in by_type.items() if ENFORCEMENT_ROUTE.get(t) == "pre_tool"),
+        "has_imports": bool(re.search(r"(?:^|\s)@[\w./~-]+\.md\b", text)),
+    }
+
+
+def analyse(
+    sample: Path,
+    out: Path,
+    log: Callable[[str], None] = print,
+    fetch: Callable[[str, str, str], str | None] | None = None,
+) -> int:
+    """Fetch each sampled AGENTS.md at its commit, compute features in memory and write them (no contents)."""
+    import httpx
+
+    client = httpx.Client(timeout=30.0, follow_redirects=True)
+
+    def default_fetch(repo: str, sha: str, path: str) -> str | None:
+        resp = client.get(f"{RAW}/{repo}/{sha}/{path}", headers={"User-Agent": "obey-survey"})
+        return resp.text if resp.status_code == 200 else None
+
+    get = fetch or default_fetch
+    rows = [json.loads(line) for line in sample.read_text(encoding="utf-8").splitlines() if line.strip()]
+    written = 0
+    with out.open("w", encoding="utf-8") as fh:
+        for i, row in enumerate(rows, 1):
+            text = get(row["repo"], row["commit_sha"], row["path"])
+            record: dict[str, Any] = {"repo": row["repo"], "commit_sha": row["commit_sha"], "fetched": text is not None}
+            if text is not None:
+                record.update(features(text))
+            fh.write(json.dumps(record, sort_keys=True) + "\n")
+            written += 1
+            if i % 100 == 0:
+                log(f"analysed {i}/{len(rows)}")
+    return written
+
+
+def llm_pass(
+    sample: Path, out: Path, config: Any, ledger: Any, batch_size: int = 40, log: Callable[[str], None] = print
+) -> int:
+    """Classify the rules the patterns left uncheckable with an LLM; store per-repository counts only."""
+    import tempfile
+
+    import httpx
+
+    from obey_cli.discover import discover
+    from obey_cli.extract import extract, llm_classify
+
+    client = httpx.Client(timeout=30.0, follow_redirects=True)
+    rows = [json.loads(line) for line in sample.read_text(encoding="utf-8").splitlines() if line.strip()]
+    queue: list[tuple[int, str]] = []  # (row index, rule text) kept in memory only
+    for i, row in enumerate(rows):
+        resp = client.get(
+            f"{RAW}/{row['repo']}/{row['commit_sha']}/{row['path']}", headers={"User-Agent": "obey-survey"}
+        )
+        if resp.status_code != 200:
+            continue
+        with tempfile.TemporaryDirectory(prefix="obey-survey-") as tmp:
+            (Path(tmp) / "AGENTS.md").write_text(resp.text, encoding="utf-8")
+            items = extract([f for f in discover(Path(tmp)) if f.path == "AGENTS.md"])
+        queue += [(i, x.candidate.text[:400]) for x in items if x.status == "uncheckable"]
+    log(f"llm: {len(queue)} uncheckable rules from {len(rows)} files")
+    proposed: dict[int, dict[str, int]] = {}
+    sent: dict[int, int] = {}
+    for start in range(0, len(queue), batch_size):
+        chunk = queue[start : start + batch_size]
+        try:
+            results = llm_classify([t for _, t in chunk], config, ledger, run_id="survey-llm")
+        except Exception as exc:
+            log(f"llm batch {start // batch_size} failed: {exc}")
+            continue
+        for (i, _), res in zip(chunk, results, strict=True):
+            sent[i] = sent.get(i, 0) + 1
+            if res is not None:
+                by = proposed.setdefault(i, {})
+                by[res["type"]] = by.get(res["type"], 0) + 1
+        if (start // batch_size) % 10 == 0:
+            log(f"llm batch {start // batch_size + 1}/{-(-len(queue) // batch_size)}, spent ${ledger.spent():.3f}")
+    with out.open("w", encoding="utf-8") as fh:
+        for i, row in enumerate(rows):
+            fh.write(
+                json.dumps(
+                    {
+                        "repo": row["repo"],
+                        "commit_sha": row["commit_sha"],
+                        "uncheckable_sent": sent.get(i, 0),
+                        "llm_proposed_by_type": proposed.get(i, {}),
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+    return len(rows)
