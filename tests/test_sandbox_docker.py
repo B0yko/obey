@@ -15,7 +15,7 @@ pytestmark = [
     pytest.mark.network,
     pytest.mark.skipif(os.environ.get("OBEY_DOCKER_TESTS") != "1", reason="set OBEY_DOCKER_TESTS=1"),
 ]
-IMAGE = os.environ.get("OBEY_SANDBOX_IMAGE", "obey-sandbox:base")
+IMAGE = os.environ.get("OBEY_SANDBOX_IMAGE", "obey-sandbox:0.1.0")
 
 
 @pytest.fixture(scope="module")
