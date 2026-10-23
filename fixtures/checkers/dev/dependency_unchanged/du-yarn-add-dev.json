@@ -1,0 +1,51 @@
+{
+  "id": "du-yarn-add-dev",
+  "rule": {
+    "type": "dependency_unchanged",
+    "params": {
+      "allow": []
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "yarn add -D prettier",
+        "exit_code": 0,
+        "output": "success Saved 1 new dependency."
+      }
+    ],
+    "diff": "diff --git a/package.json b/package.json\nindex 694f099..254939c 100644\n--- a/package.json\n+++ b/package.json\n@@ -12,6 +12,7 @@\n     \"pino\": \"^9.5.0\"\n   },\n   \"devDependencies\": {\n-    \"supertest\": \"^7.0.0\"\n+    \"prettier\": \"^3.4.2\",\n+    \"supertest\": \"^7.0.0\"\n   }\n }\n",
+    "base_files": [
+      ".env.example",
+      ".gitignore",
+      "README.md",
+      "docs/api.md",
+      "package-lock.json",
+      "package.json",
+      "src/routes/boards.js",
+      "src/routes/health.js",
+      "src/server.js",
+      "test/boards.test.js",
+      "test/health.test.js"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "I made the change and left it uncommitted in the working tree.\n\nSummary: Applied the change with a small focused diff; tests and lint were run."
+  },
+  "expected": "violated",
+  "tags": [
+    "node"
+  ],
+  "note": "`yarn add -D prettier` adds a new package."
+}

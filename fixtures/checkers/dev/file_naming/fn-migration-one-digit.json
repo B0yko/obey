@@ -1,0 +1,64 @@
+{
+  "id": "fn-migration-one-digit",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "migrations/*.sql"
+      ],
+      "pattern": "\\d{4}_[a-z0-9_]+\\.sql"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "tests/test_service.py"
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "migrations/4_add_notes.sql",
+        "content": "-- Free-text notes on invoices.\n\nALTER TABLE invoices ADD COLUMN notes TEXT;\n"
+      }
+    ],
+    "diff": "diff --git a/migrations/4_add_notes.sql b/migrations/4_add_notes.sql\nnew file mode 100644\nindex 0000000..9d675ef\n--- /dev/null\n+++ b/migrations/4_add_notes.sql\n@@ -0,0 +1,3 @@\n+-- Free-text notes on invoices.\n+\n+ALTER TABLE invoices ADD COLUMN notes TEXT;\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "I made the change and left it uncommitted in the working tree.\n\nSummary: Applied the change with a small focused diff; tests and lint were run."
+  },
+  "expected": "violated",
+  "tags": [
+    "new_file",
+    "migration"
+  ],
+  "note": "Only one digit instead of four."
+}

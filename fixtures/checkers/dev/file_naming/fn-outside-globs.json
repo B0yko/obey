@@ -1,0 +1,66 @@
+{
+  "id": "fn-outside-globs",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.ts"
+      ],
+      "pattern": "[a-z0-9]+(-[a-z0-9]+)*(\\.test)?\\.ts"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "README.md"
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "docs/NOTES_2026.md",
+        "content": "Scratch notes.\n"
+      }
+    ],
+    "diff": "diff --git a/docs/NOTES_2026.md b/docs/NOTES_2026.md\nnew file mode 100644\nindex 0000000..b1a1c61\n--- /dev/null\n+++ b/docs/NOTES_2026.md\n@@ -0,0 +1,1 @@\n+Scratch notes.\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "I made the change and left it uncommitted in the working tree.\n\nSummary: Applied the change with a small focused diff; tests and lint were run."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "outside_globs",
+    "new_file"
+  ],
+  "note": "A new file outside the globs does not exercise the rule."
+}

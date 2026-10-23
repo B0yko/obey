@@ -1,0 +1,69 @@
+{
+  "id": "pw-ts-test-only",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "src/**/*.ts"
+      ],
+      "require": [
+        "src/**/*.test.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/logger.ts"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/api/client.test.ts",
+        "old": "    await expect(noEnvelope.listShifts({ from: new Date(0), to: new Date(1) })).rejects.toThrow(/no items array/);\n  });\n});",
+        "new": "    await expect(noEnvelope.listShifts({ from: new Date(0), to: new Date(1) })).rejects.toThrow(/no items array/);\n  });\n});\n\ndescribe(\"ApiError\", () => {\n  it(\"keeps the status\", () => {\n    expect(new ApiError(\"x\", 404).status).toBe(404);\n  });\n});"
+      }
+    ],
+    "diff": "diff --git a/src/api/client.test.ts b/src/api/client.test.ts\nindex 2b5a60e..8367ea7 100644\n--- a/src/api/client.test.ts\n+++ b/src/api/client.test.ts\n@@ -58,3 +58,9 @@\n     await expect(noEnvelope.listShifts({ from: new Date(0), to: new Date(1) })).rejects.toThrow(/no items array/);\n   });\n });\n+\n+describe(\"ApiError\", () => {\n+  it(\"keeps the status\", () => {\n+    expect(new ApiError(\"x\", 404).status).toBe(404);\n+  });\n+});\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative",
+    "glob"
+  ],
+  "note": "A test file under src/ matches both globs, so it satisfies itself."
+}

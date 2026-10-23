@@ -1,0 +1,86 @@
+{
+  "id": "cr-typecheck-missing",
+  "rule": {
+    "type": "command_required",
+    "params": {
+      "pattern": "^pnpm (typecheck|run typecheck)\\b",
+      "edit_globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/shift-planner.ts"
+      },
+      {
+        "seq": 1,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/date-utils.ts"
+      },
+      {
+        "seq": 2,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/shift-planner.ts",
+        "old": "} from \"./date-utils.js\";\nimport type { NewShift, Person, Shift } from \"./generated/api-types.js\";\n\nexport const MAX_SHIFT_HOURS = 12;\nexport const DEFAULT_WEEKLY_LIMIT = 40;\n\nexport interface Conflict {",
+        "new": "} from \"./date-utils.js\";\nimport type { NewShift, Person, Shift } from \"./generated/api-types.js\";\n\nexport const MAX_SHIFT_HOURS = 10;\nexport const DEFAULT_WEEKLY_LIMIT = 40;\n\nexport interface Conflict {"
+      },
+      {
+        "seq": 3,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "pnpm test",
+        "exit_code": 0,
+        "output": "Tests 20 passed"
+      },
+      {
+        "seq": 4,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "pnpm lint",
+        "exit_code": 0,
+        "output": ""
+      }
+    ],
+    "diff": "diff --git a/src/shift-planner.ts b/src/shift-planner.ts\nindex e612eae..7f4332f 100644\n--- a/src/shift-planner.ts\n+++ b/src/shift-planner.ts\n@@ -10,7 +10,7 @@\n } from \"./date-utils.js\";\n import type { NewShift, Person, Shift } from \"./generated/api-types.js\";\n \n-export const MAX_SHIFT_HOURS = 12;\n+export const MAX_SHIFT_HOURS = 10;\n export const DEFAULT_WEEKLY_LIMIT = 40;\n \n export interface Conflict {\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "I made the change and left it uncommitted in the working tree.\n\nSummary: Applied the change with a small focused diff; tests and lint were run."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "pnpm test and lint ran, but the required `pnpm typecheck` never did."
+}

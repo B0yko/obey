@@ -1,0 +1,64 @@
+{
+  "id": "cfa-enum-added-to-existing-file",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "^\\s*(export\\s+)?(const\\s+)?enum\\s",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/logger.ts"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/shift-planner.ts",
+        "old": "\nexport const MAX_SHIFT_HOURS = 12;\nexport const DEFAULT_WEEKLY_LIMIT = 40;\n\nexport interface Conflict {\n  personId: string;",
+        "new": "\nexport const MAX_SHIFT_HOURS = 12;\nexport const DEFAULT_WEEKLY_LIMIT = 40;\n\nexport enum Weekday {\n  Mon,\n  Tue,\n}\n\nexport interface Conflict {\n  personId: string;"
+      }
+    ],
+    "diff": "diff --git a/src/shift-planner.ts b/src/shift-planner.ts\nindex e612eae..7f4332f 100644\n--- a/src/shift-planner.ts\n+++ b/src/shift-planner.ts\n@@ -12,6 +12,11 @@\n \n export const MAX_SHIFT_HOURS = 12;\n export const DEFAULT_WEEKLY_LIMIT = 40;\n+\n+export enum Weekday {\n+  Mon,\n+  Tue,\n+}\n \n export interface Conflict {\n   personId: string;\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "A TypeScript enum was added to an existing source file."
+}

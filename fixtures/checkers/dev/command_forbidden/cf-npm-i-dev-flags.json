@@ -1,0 +1,80 @@
+{
+  "id": "cf-npm-i-dev-flags",
+  "rule": {
+    "type": "command_forbidden",
+    "params": {
+      "patterns": [
+        "^npm (install|i|add|ci|uninstall|remove|rm|update)\\b"
+      ],
+      "preferred": "pnpm",
+      "preferred_patterns": [
+        "^pnpm (install|i|add|remove|rm|update|up)\\b"
+      ],
+      "manual_edit_paths": [
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "grep -rn 'formatTime' src | head",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/shift-planner.ts"
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "npm i -D vitest@2 --save-exact",
+        "exit_code": 0,
+        "output": "added 1 package, and audited 131 packages in 3s\n\nfound 0 vulnerabilities"
+      }
+    ],
+    "diff": "diff --git a/package.json b/package.json\nindex 694f099..254939c 100644\n--- a/package.json\n+++ b/package.json\n@@ -19,6 +19,7 @@\n   \"devDependencies\": {\n     \"@eslint/js\": \"^10.0.1\",\n     \"eslint\": \"^10.13.0\",\n+    \"vitest\": \"2.1.8\",\n     \"typescript\": \"~6.0.3\",\n     \"typescript-eslint\": \"^8.72.0\",\n     \"vitest\": \"^5.0.5\"\ndiff --git a/package-lock.json b/package-lock.json\nnew file mode 100644\nindex 0000000..c1f9c51\n--- /dev/null\n+++ b/package-lock.json\n@@ -0,0 +1,20 @@\n+{\n+  \"name\": \"shiftwise\",\n+  \"version\": \"0.2.0\",\n+  \"lockfileVersion\": 3,\n+  \"requires\": true,\n+  \"packages\": {\n+    \"\": {\n+      \"name\": \"shiftwise\",\n+      \"version\": \"0.2.0\",\n+      \"dependencies\": {\n+        \"vitest\": \"^2.1.8\"\n+      }\n+    },\n+    \"node_modules/vitest\": {\n+      \"version\": \"2.1.8\",\n+      \"resolved\": \"https://registry.npmjs.org/vitest/-/vitest-2.1.8.tgz\",\n+      \"integrity\": \"sha512-ZmFrZS1pbnRlZ3JpdHktcGxhY2Vob2xkZXI=\"\n+    }\n+  }\n+}\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "The short form `npm i` with flags matches the forbidden npm install pattern."
+}

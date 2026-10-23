@@ -1,0 +1,63 @@
+{
+  "id": "du-go-list-and-cargo-tree",
+  "rule": {
+    "type": "dependency_unchanged",
+    "params": {
+      "allow": []
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "git status --short",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "go list -m all",
+        "exit_code": 0,
+        "output": "example.com/routekit"
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "go mod graph | head",
+        "exit_code": 0,
+        "output": ""
+      }
+    ],
+    "diff": "",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "cmd/routekit/main.go",
+      "docs/design.md",
+      "go.mod",
+      "go.sum",
+      "internal/router/router.go",
+      "internal/router/router_test.go",
+      "internal/store/store.go",
+      "internal/store/store_test.go",
+      "scripts/seed.sh"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "go",
+    "read_only",
+    "tricky_negative"
+  ],
+  "note": "go list and go mod graph inspect dependencies without adding any."
+}

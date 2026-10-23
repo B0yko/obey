@@ -1,0 +1,169 @@
+{
+  "id": "cm-rec-codex-py-parse-amount",
+  "rule": {
+    "type": "commit_message",
+    "params": {
+      "regex": "(?![^\\n]{73})(feat|fix|refactor|test|docs|chore)(\\([a-z0-9._/-]+\\))?!?: \\S"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "type": "message",
+        "text": "I’ll inspect the money module and its tests, implement the parser with matching tests, run the required checks from the repository instructions, then commit the focused change.",
+        "seq": 0
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "sed -n '1,240p' src/ledgerline/money.py && rg -n \\\"Money|parse_amount|money\\\" tests",
+        "exit_code": 0,
+        "output": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Exact money arithmetic on top of Decimal.\"\"\"\n\nfrom __future__ import annotations\n\nfrom collections.abc import Iterable\nfrom dataclasses import dataclass\nfrom decimal import ROUND_HALF_UP, Decimal, InvalidOperation\n\nfrom ledgerline.errors import ValidationError\nfrom ledgerline.generated.currency_codes import CURRENCY_MINOR_UNITS\n\n\ndef minor_units(currency: str) -> int:\n    \"\"\"Return the number of decimal digits the currency uses (JPY: 0, EUR: 2, KWD: 3).\"\"\"\n    try:\n        return CURRENCY_MINOR_UNITS[currency]\n    except KeyError:\n        raise ValidationError(f\"unknown currency: {currency!r}\") from None\n\n\ndef quantize(amount: Decimal, currency: str) -> Decimal:\n    \"\"\"Round an amount to the currency's minor unit, half up.\"\"\"\n    step = Decimal(1).scaleb(-minor_units(currency))\n    return amount.quantize(step, rounding=ROUND_HALF_UP)\n\n\ndef parse_amount(text: str) -> Decimal:\n    \"\"\"Parse a user-typed amount such as ``\"1,234.50\"``.\"\"\"\n    cleaned = text.strip().replace(\",\", \"\").replace(\" \", \"\")\n    try:\n        value = Decimal(cleaned)\n    except InvalidOperation:\n        raise ValidationError(f\"not a valid amount: {text!r}\") from None\n    if not value.is_finite():\n        raise ValidationError(f\"not a valid amount: {text!r}\")\n    return value\n\n\n@dataclass(frozen=True, slots=True)\nclass Money:\n    \"\"\"An amount in a single currency, always rounded to that currency's minor unit.\"\"\"\n\n    amount: Decimal\n    currency: str\n\n    def __post_init__(self) -> None:\n        object.__setattr__(self, \"amount\", quantize(self.amount, self.currency))\n\n    @classmethod\n    def zero(cls, currency: str) -> Money:\n        return cls(Decimal(0), currency)\n\n    def __add__(self, other: object) -> Money:\n        if not isinstance(other, Money):\n            return NotImplemented\n        if other.currency != self.currency:\n            raise ValidationError(f\"cannot add {other.currency} to {self.currency}\")\n        return Money(self.amount + other.amount, self.currency)\n\n    def __mul__(self, factor: int | Decimal) -> Money:\n        return Money(self.amount * factor, self.currency)\n\n    def __str__(self) -> str:\n        return format_money(self)\n\n\ndef format_money(money: Money) -> str:\n    \"\"\"Format as ``\"1,234.50 EUR\"``.\"\"\"\n    digits = minor_units(money.currency)\n    return f\"{money.amount:,.{digits}f} {money.currency}\"\n\n\ndef sum_money(items: Iterable[Money], currency: str) -> Money:\n    \"\"\"Sum money values; an empty iterable gives zero in ``currency``.\"\"\"\n    result = Money.zero(currency)\n    for item in items:\n        result = result + item\n    return result\ntests/test_db.py:13:from ledgerline.money import Money\ntests/test_db.py:49:        lines=[InvoiceLine(\"SKU-1\", \"Widget\", 2, Money(Decimal(\"4.25\"), \"EUR\"))],\ntests/test_db.py:55:    assert loaded.total == Money(Decimal(\"8.50\"), \"EUR\")\ntests/test_service.py:17:from ledgerline.money import Money\ntests/test_service.py:22:    return InvoiceLine(sku, f\"Item {sku}\", quantity, Money(Decimal(price), currency))\ntests/test_service.py:50:    assert first.total == Money(Decimal(\"20.00\"), \"EUR\")\ntests/test_service.py:123:    assert balance == {\"EUR\": Money(Decimal(\"10\"), \"EUR\"), \"USD\": Money(Decimal(\"7.5\"), \"USD\")}\ntests/test_importers.py:13:from ledgerline.money import Money\ntests/test_importers.py:46:    assert order.lines[0].unit_price == Money(Decimal(\"8.50\"), \"EUR\")\ntests/test_importers.py:47:    assert order.lines[1].unit_price == Money(Decimal(\"12\"), \"EUR\")\ntests/test_importers.py:80:    assert first.total == Money(Decimal(\"29\"), \"EUR\")\ntests/test_money.py:12:from ledgerline.money import Money, format_money, parse_amount, quantize, sum_money\ntests/test_money.py:17:def test_money_rounds_to_the_currency_minor_unit() -> None:\ntests/test_money.py:18:    assert Money(Decimal(\"10.005\"), \"EUR\").amount == Decimal(\"10.01\")\ntests/test_money.py:19:    assert Money(Decimal(\"1234.5\"), \"JPY\").amount == Decimal(\"1235\")\ntests/test_money.py:23:def test_money_addition_and_multipl\n… [962 more characters]",
+        "seq": 1
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "sed -n '1,120p' tests/test_money.py && git status --short && git log -5 --oneline",
+        "exit_code": 0,
+        "output": "# SPDX-License-Identifier: Apache-2.0\nfrom __future__ import annotations\n\nimport importlib.util\nfrom decimal import Decimal\nfrom pathlib import Path\n\nimport pytest\n\nfrom ledgerline.errors import ValidationError\nfrom ledgerline.generated import currency_codes\nfrom ledgerline.money import Money, format_money, parse_amount, quantize, sum_money\n\nROOT = Path(__file__).resolve().parents[1]\n\n\ndef test_money_rounds_to_the_currency_minor_unit() -> None:\n    assert Money(Decimal(\"10.005\"), \"EUR\").amount == Decimal(\"10.01\")\n    assert Money(Decimal(\"1234.5\"), \"JPY\").amount == Decimal(\"1235\")\n    assert quantize(Decimal(\"1.0005\"), \"KWD\") == Decimal(\"1.001\")\n\n\ndef test_money_addition_and_multiplication() -> None:\n    price = Money(Decimal(\"19.99\"), \"USD\")\n    assert price * 3 == Money(Decimal(\"59.97\"), \"USD\")\n    assert price + price == Money(Decimal(\"39.98\"), \"USD\")\n    assert sum_money([], \"USD\") == Money.zero(\"USD\")\n\n\ndef test_mixed_and_unknown_currencies_are_rejected() -> None:\n    with pytest.raises(ValidationError):\n        Money(Decimal(1), \"EUR\") + Money(Decimal(1), \"USD\")\n    with pytest.raises(ValidationError):\n        Money(Decimal(1), \"XXX\")\n\n\ndef test_parse_amount_accepts_thousands_separators_and_rejects_junk() -> None:\n    assert parse_amount(\" 1,234.50 \") == Decimal(\"1234.50\")\n    for bad in (\"abc\", \"NaN\", \"\"):\n        with pytest.raises(ValidationError):\n            parse_amount(bad)\n\n\ndef test_format_money_uses_minor_units() -> None:\n    assert format_money(Money(Decimal(\"1234.5\"), \"EUR\")) == \"1,234.50 EUR\"\n    assert format_money(Money(Decimal(\"1200\"), \"JPY\")) == \"1,200 JPY\"\n\n\ndef test_generated_currency_module_matches_its_generator() -> None:\n    script = ROOT / \"scripts\" / \"gen_currency.py\"\n    spec = importlib.util.spec_from_file_location(\"gen_currency\", script)\n    assert spec is not None and spec.loader is not None\n    module = importlib.util.module_from_spec(spec)\n    spec.loader.exec_module(module)\n    on_disk = Path(currency_codes.__file__).read_text(encoding=\"utf-8\")\n    assert on_disk == module.render()\nb24a302 Initial import\n",
+        "seq": 2
+      },
+      {
+        "type": "message",
+        "text": "`parse_amount` already exists, but it only removes commas and spaces, so `\"EUR 12\"` currently fails. I’m tightening it to parse a plain amount with an optional three-letter currency code before or after it, while preserving the `Decimal` result and rejecting malformed input.",
+        "seq": 3
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "src/ledgerline/money.py",
+        "old": null,
+        "new": null,
+        "seq": 4
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "tests/test_money.py",
+        "old": null,
+        "new": null,
+        "seq": 5
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make test",
+        "exit_code": 0,
+        "output": "uv run pytest -q\nUsing CPython 3.13.5 interpreter at: /usr/bin/python3\nCreating virtual environment at: .venv\n   Building ledgerline @ file:///srv/obey/work\nDownloading pygments (1.2MiB)\nDownloading ruff (9.6MiB)\n      Built ledgerline @ file:///srv/obey/work\n Downloaded pygments\n Downloaded ruff\nInstalled 7 packages in 32ms\n........................                                                 [100%]\n24 passed in 0.10s\n",
+        "seq": 6
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make lint",
+        "exit_code": 2,
+        "output": "uv run ruff check .\nI001 [*] Import block is un-sorted or un-formatted\n  --> src/ledgerline/money.py:4:1\n   |\n 2 |   \"\"\"Exact money arithmetic on top of Decimal.\"\"\"\n 3 |\n 4 | / from __future__ import annotations\n 5 | |\n 6 | | from collections.abc import Iterable\n 7 | | from dataclasses import dataclass\n 8 | | from decimal import ROUND_HALF_UP, Decimal, InvalidOperation\n 9 | | import re\n10 | |\n11 | | from ledgerline.errors import ValidationError\n12 | | from ledgerline.generated.currency_codes import CURRENCY_MINOR_UNITS\n   | |____________________________________________________________________^\n13 |\n14 |   _AMOUNT_PATTERN = re.compile(r\"[+-]?(?:\\d+|\\d{1,3}(?:,\\d{3})+)(?:\\.\\d*)?|[+-]?\\.\\d+\")\n   |\nhelp: Organize imports\n   |\n5  |\n6  + import re\n7  | from collections.abc import Iterable\n8  | from dataclasses import dataclass\n9  | from decimal import ROUND_HALF_UP, Decimal, InvalidOperation\n   - import re\n10 |\n   |\n\nFound 1 error.\n[*] 1 fixable with `--fix`.\nmake: *** [Makefile:7: lint] Error 1\n",
+        "seq": 7
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "src/ledgerline/money.py",
+        "old": null,
+        "new": null,
+        "seq": 8
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make lint",
+        "exit_code": 0,
+        "output": "uv run ruff check .\nAll checks passed!\n",
+        "seq": 9
+      },
+      {
+        "type": "message",
+        "text": "The parser now handles `\"EUR 12\"` and suffix codes such as `\"12 EUR\"`, and malformed grouping is rejected. `make test` passed; lint initially flagged import ordering, which I corrected, and `make lint` now passes. I’m reviewing the final diff and will commit it.",
+        "seq": 10
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "git diff --check && git diff -- src/ledgerline/money.py tests/test_money.py && git status --short",
+        "exit_code": 0,
+        "output": "diff --git a/src/ledgerline/money.py b/src/ledgerline/money.py\nindex 2851dbc..2f9974e 100644\n--- a/src/ledgerline/money.py\n+++ b/src/ledgerline/money.py\n@@ -3,6 +3,7 @@\n \n from __future__ import annotations\n \n+import re\n from collections.abc import Iterable\n from dataclasses import dataclass\n from decimal import ROUND_HALF_UP, Decimal, InvalidOperation\n@@ -10,6 +11,8 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation\n from ledgerline.errors import ValidationError\n from ledgerline.generated.currency_codes import CURRENCY_MINOR_UNITS\n \n+_AMOUNT_PATTERN = re.compile(r\"[+-]?(?:\\d+|\\d{1,3}(?:,\\d{3})+)(?:\\.\\d*)?|[+-]?\\.\\d+\")\n+\n \n def minor_units(currency: str) -> int:\n     \"\"\"Return the number of decimal digits the currency uses (JPY: 0, EUR: 2, KWD: 3).\"\"\"\n@@ -26,10 +29,19 @@ def quantize(amount: Decimal, currency: str) -> Decimal:\n \n \n def parse_amount(text: str) -> Decimal:\n-    \"\"\"Parse a user-typed amount such as ``\"1,234.50\"``.\"\"\"\n-    cleaned = text.strip().replace(\",\", \"\").replace(\" \", \"\")\n+    \"\"\"Parse an amount with optional thousands separators and currency code.\"\"\"\n+    cleaned = text.strip()\n+    parts = cleaned.split()\n+    if len(parts) == 2:\n+        first, second = parts\n+        if len(first) == 3 and first.isascii() and first.isalpha():\n+            cleaned = second\n+        elif len(second) == 3 and second.isascii() and second.isalpha():\n+            cleaned = first\n+    if _AMOUNT_PATTERN.fullmatch(cleaned) is None:\n+        raise ValidationError(f\"not a valid amount: {text!r}\")\n     try:\n-        value = Decimal(cleaned)\n+        value = Decimal(cleaned.replace(\",\", \"\"))\n     except InvalidOperation:\n         raise ValidationError(f\"not a valid amount: {text!r}\") from None\n     if not value.is_finite():\ndiff --git a/tests/test_money.py b/tests/test_money.py\nindex 4a0171e..b621f3a 100644\n--- a/tests/test_money.py\n+++ b/tests/test_money.py\n@@ -36,7 +36,9 @@ def test_mixed_and_unknown_currencies_are_rejected() -> None:\n \n def test_parse_amount_accepts_thousands_separators_and_rejects_junk() -> None:\n     assert parse_amount(\" 1,234.50 \") == Decimal(\"1234.50\")\n-    for bad in (\"abc\", \"NaN\", \"\"):\n+    assert parse_amount(\"EUR 12\") == Decimal(\"12\")\n+    assert parse_amount(\"12 EUR\") == Decimal(\"12\")\n+    for bad in (\"abc\", \"NaN\", \"\", \"1,23.50\", \"EUR xyz\"):\n         with pytest.raises(ValidationError):\n             parse_amount(bad)\n \n M src/ledgerline/money.py\n M tests/test_money.py\n?? uv.lock\n",
+        "seq": 11
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "rm uv.lock && git add src/ledgerline/money.py tests/test_money.py && git commit -m \"feat: parse amounts with currency codes\" && git status --short",
+        "exit_code": 128,
+        "output": "Author identity unknown\n\n*** Please tell me who you are.\n\nRun\n\n  git config --global user.email \"you@example.com\"\n  git config --global user.name \"Your Name\"\n\nto set your account's default identity.\nOmit --global to set the identity only in this repository.\n\nfatal: unable to auto-detect email address (got 'agent@67faa9dff533.(none)')\n",
+        "seq": 12
+      },
+      {
+        "type": "message",
+        "text": "The code and test changes are staged. The commit command hit a missing Git author identity in this environment; I’ll use a one-time `Codex` identity for this commit without changing repository or global Git configuration.",
+        "seq": 13
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "git -c user.name='Codex' -c user.email='codex@openai.com' commit -m \\\"feat: parse amounts with currency codes\\\" && git status --short && git log -1 --oneline",
+        "exit_code": 0,
+        "output": "[main d05e8d1] feat: parse amounts with currency codes\n 2 files changed, 18 insertions(+), 4 deletions(-)\nd05e8d1 feat: parse amounts with currency codes\n",
+        "seq": 14
+      },
+      {
+        "type": "message",
+        "text": "Added support for amounts with optional three-letter currency codes, including `\"EUR 12\"` and `\"12 EUR\"`, and added parser tests.\n\n`make test` and `make lint` passed. Commit: `d05e8d1` (`feat: parse amounts with currency codes`).\n\nSummary: Updated `parse_amount` and its tests; both checks passed.",
+        "seq": 15
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/money.py b/src/ledgerline/money.py\nindex 2851dbc..2f9974e 100644\n--- a/src/ledgerline/money.py\n+++ b/src/ledgerline/money.py\n@@ -3,6 +3,7 @@\n \n from __future__ import annotations\n \n+import re\n from collections.abc import Iterable\n from dataclasses import dataclass\n from decimal import ROUND_HALF_UP, Decimal, InvalidOperation\n@@ -10,6 +11,8 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation\n from ledgerline.errors import ValidationError\n from ledgerline.generated.currency_codes import CURRENCY_MINOR_UNITS\n \n+_AMOUNT_PATTERN = re.compile(r\"[+-]?(?:\\d+|\\d{1,3}(?:,\\d{3})+)(?:\\.\\d*)?|[+-]?\\.\\d+\")\n+\n \n def minor_units(currency: str) -> int:\n     \"\"\"Return the number of decimal digits the currency uses (JPY: 0, EUR: 2, KWD: 3).\"\"\"\n@@ -26,10 +29,19 @@ def quantize(amount: Decimal, currency: str) -> Decimal:\n \n \n def parse_amount(text: str) -> Decimal:\n-    \"\"\"Parse a user-typed amount such as ``\"1,234.50\"``.\"\"\"\n-    cleaned = text.strip().replace(\",\", \"\").replace(\" \", \"\")\n+    \"\"\"Parse an amount with optional thousands separators and currency code.\"\"\"\n+    cleaned = text.strip()\n+    parts = cleaned.split()\n+    if len(parts) == 2:\n+        first, second = parts\n+        if len(first) == 3 and first.isascii() and first.isalpha():\n+            cleaned = second\n+        elif len(second) == 3 and second.isascii() and second.isalpha():\n+            cleaned = first\n+    if _AMOUNT_PATTERN.fullmatch(cleaned) is None:\n+        raise ValidationError(f\"not a valid amount: {text!r}\")\n     try:\n-        value = Decimal(cleaned)\n+        value = Decimal(cleaned.replace(\",\", \"\"))\n     except InvalidOperation:\n         raise ValidationError(f\"not a valid amount: {text!r}\") from None\n     if not value.is_finite():\ndiff --git a/tests/test_money.py b/tests/test_money.py\nindex 4a0171e..b621f3a 100644\n--- a/tests/test_money.py\n+++ b/tests/test_money.py\n@@ -36,7 +36,9 @@ def test_mixed_and_unknown_currencies_are_rejected() -> None:\n \n def test_parse_amount_accepts_thousands_separators_and_rejects_junk() -> None:\n     assert parse_amount(\" 1,234.50 \") == Decimal(\"1234.50\")\n-    for bad in (\"abc\", \"NaN\", \"\"):\n+    assert parse_amount(\"EUR 12\") == Decimal(\"12\")\n+    assert parse_amount(\"12 EUR\") == Decimal(\"12\")\n+    for bad in (\"abc\", \"NaN\", \"\", \"1,23.50\", \"EUR xyz\"):\n         with pytest.raises(ValidationError):\n             parse_amount(bad)\n \n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [
+      {
+        "sha": "d05e8d111e05d1ede6d0468612c661167f88963a",
+        "message": "feat: parse amounts with currency codes",
+        "files": [
+          "src/ledgerline/money.py",
+          "tests/test_money.py"
+        ]
+      }
+    ],
+    "pushed_refs": [],
+    "final_message": "Added support for amounts with optional three-letter currency codes, including `\"EUR 12\"` and `\"12 EUR\"`, and added parser tests.\n\n`make test` and `make lint` passed. Commit: `d05e8d1` (`feat: parse amounts with currency codes`).\n\nSummary: Updated `parse_amount` and its tests; both checks passed."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "recorded"
+  ],
+  "note": "The commit subject \"feat: parse amounts with currency codes\" follows Conventional Commits."
+}

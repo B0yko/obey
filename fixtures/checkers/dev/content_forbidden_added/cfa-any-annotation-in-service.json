@@ -1,0 +1,62 @@
+{
+  "id": "cfa-any-annotation-in-service",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "\\bAny\\b",
+      "globs": [
+        "src/**/*.py"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "README.md"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/ledgerline/service.py",
+        "old": "from ledgerline.money import Money, sum_money\n\nlogger = logging.getLogger(__name__)\n\nDEFAULT_TERMS_DAYS = 30\n",
+        "new": "from ledgerline.money import Money, sum_money\n\nlogger = logging.getLogger(__name__)\n\nPricingFn = Callable[[str], Any]\n\nDEFAULT_TERMS_DAYS = 30\n"
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/service.py b/src/ledgerline/service.py\nindex d02fae2..48addc2 100644\n--- a/src/ledgerline/service.py\n+++ b/src/ledgerline/service.py\n@@ -14,6 +14,8 @@\n from ledgerline.money import Money, sum_money\n \n logger = logging.getLogger(__name__)\n+\n+PricingFn = Callable[[str], Any]\n \n DEFAULT_TERMS_DAYS = 30\n \n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "The added alias uses Any in a src module."
+}

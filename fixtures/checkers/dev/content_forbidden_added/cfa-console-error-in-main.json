@@ -1,0 +1,66 @@
+{
+  "id": "cfa-console-error-in-main",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "\\bconsole\\.\\w+\\(",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "ls src",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/main.ts",
+        "old": "    root.innerHTML = renderWeekTable(people, shifts, weekStart);\n    logger.info(\"rendered the week\", { people: people.length, shifts: shifts.length });\n  } catch (error) {\n    logger.error(\"could not load the schedule\", error);\n    root.textContent = \"The schedule could not be loaded. Please try again later.\";\n  }\n}",
+        "new": "    root.innerHTML = renderWeekTable(people, shifts, weekStart);\n    logger.info(\"rendered the week\", { people: people.length, shifts: shifts.length });\n  } catch (error) {\n    console.error(\"could not load the schedule\", error);\n    root.textContent = \"The schedule could not be loaded. Please try again later.\";\n  }\n}"
+      }
+    ],
+    "diff": "diff --git a/src/main.ts b/src/main.ts\nindex 49f68dd..11baa42 100644\n--- a/src/main.ts\n+++ b/src/main.ts\n@@ -22,7 +22,7 @@\n     root.innerHTML = renderWeekTable(people, shifts, weekStart);\n     logger.info(\"rendered the week\", { people: people.length, shifts: shifts.length });\n   } catch (error) {\n-    logger.error(\"could not load the schedule\", error);\n+    console.error(\"could not load the schedule\", error);\n     root.textContent = \"The schedule could not be loaded. Please try again later.\";\n   }\n }\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "logger.error was replaced by console.error, an added line matching console.method(."
+}

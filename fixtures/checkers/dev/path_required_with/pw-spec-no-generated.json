@@ -1,0 +1,70 @@
+{
+  "id": "pw-spec-no-generated",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "openapi.yaml"
+      ],
+      "require": [
+        "src/generated/**"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "openapi.yaml",
+        "old": "          type: string\n        role:\n          type: string\n          enum: [barista, baker, cashier, manager]\n        maxWeeklyHours:\n          type: integer\n    Shift:",
+        "new": "          type: string\n        role:\n          type: string\n          enum: [barista, baker, cashier, manager, intern]\n        maxWeeklyHours:\n          type: integer\n    Shift:"
+      }
+    ],
+    "diff": "diff --git a/openapi.yaml b/openapi.yaml\nindex d6d30df..3a9f251 100644\n--- a/openapi.yaml\n+++ b/openapi.yaml\n@@ -35,7 +35,7 @@\n           type: string\n         role:\n           type: string\n-          enum: [barista, baker, cashier, manager]\n+          enum: [barista, baker, cashier, manager, intern]\n         maxWeeklyHours:\n           type: integer\n     Shift:\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "violated",
+  "tags": [
+    "generated"
+  ],
+  "note": "The spec changed and generated types did not."
+}

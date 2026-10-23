@@ -1,0 +1,72 @@
+{
+  "id": "cf-git-add-dot",
+  "rule": {
+    "type": "command_forbidden",
+    "params": {
+      "patterns": [
+        "^git add (-A|--all|\\.)( |$)"
+      ],
+      "preferred_patterns": [
+        "^git add \\S"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/ledgerline/errors.py"
+      },
+      {
+        "seq": 1,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/ledgerline/models.py"
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "git add . && git status --short",
+        "exit_code": 0,
+        "output": "M  src/ledgerline/money.py"
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/money.py b/src/ledgerline/money.py\nindex ac2a51a..6068a03 100644\n--- a/src/ledgerline/money.py\n+++ b/src/ledgerline/money.py\n@@ -26,7 +26,7 @@\n \n \n def parse_amount(text: str) -> Decimal:\n-    \"\"\"Parse a user-typed amount such as ``\"1,234.50\"``.\"\"\"\n+    \"\"\"Parse a user-typed amount such as ``\"1,234.50\"`` (accepts \"1 234,50\" style input).\"\"\"\n     cleaned = text.strip().replace(\",\", \"\").replace(\" \", \"\")\n     try:\n         value = Decimal(cleaned)\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "I made the change and left it uncommitted in the working tree.\n\nSummary: Applied the change with a small focused diff; tests and lint were run."
+  },
+  "expected": "violated",
+  "tags": [
+    "chain"
+  ],
+  "note": "`git add .` stages everything and matches the forbidden add-all pattern."
+}

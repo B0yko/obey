@@ -1,0 +1,66 @@
+{
+  "id": "pw-src-only-dev",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "src/**/*.py"
+      ],
+      "require": [
+        "tests/**/*.py"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "ls src/ledgerline tests",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/ledgerline/service.py",
+        "old": "\nlogger = logging.getLogger(__name__)\n\nDEFAULT_TERMS_DAYS = 30\n\n\ndef _utcnow() -> datetime:",
+        "new": "\nlogger = logging.getLogger(__name__)\n\nDEFAULT_TERMS_DAYS = 14\n\n\ndef _utcnow() -> datetime:"
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/service.py b/src/ledgerline/service.py\nindex d02fae2..48addc2 100644\n--- a/src/ledgerline/service.py\n+++ b/src/ledgerline/service.py\n@@ -15,7 +15,7 @@\n \n logger = logging.getLogger(__name__)\n \n-DEFAULT_TERMS_DAYS = 30\n+DEFAULT_TERMS_DAYS = 14\n \n \n def _utcnow() -> datetime:\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "A src change without any tests change."
+}

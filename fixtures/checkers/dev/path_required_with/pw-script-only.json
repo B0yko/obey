@@ -1,0 +1,69 @@
+{
+  "id": "pw-script-only",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "src/**/*.py"
+      ],
+      "require": [
+        "tests/**/*.py"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "grep -rn \"InvoiceService\" src tests | head -20",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "scripts/gen_currency.py",
+        "old": "    (\"GBP\", 2),\n    (\"HKD\", 2),\n    (\"HUF\", 2),\n    (\"JPY\", 0),\n    (\"KWD\", 3),\n    (\"NOK\", 2),\n    (\"NZD\", 2),",
+        "new": "    (\"GBP\", 2),\n    (\"HKD\", 2),\n    (\"HUF\", 2),\n    (\"ISK\", 0),\n    (\"JPY\", 0),\n    (\"KWD\", 3),\n    (\"NOK\", 2),\n    (\"NZD\", 2),"
+      }
+    ],
+    "diff": "diff --git a/scripts/gen_currency.py b/scripts/gen_currency.py\nindex 18bd889..58dcae3 100644\n--- a/scripts/gen_currency.py\n+++ b/scripts/gen_currency.py\n@@ -25,7 +25,8 @@\n     (\"GBP\", 2),\n     (\"HKD\", 2),\n     (\"HUF\", 2),\n-    (\"JPY\", 0),\n+    (\"ISK\", 0),\n+    (\"JPY\", 0),\n     (\"KWD\", 3),\n     (\"NOK\", 2),\n     (\"NZD\", 2),\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "tricky_negative",
+    "outside_globs"
+  ],
+  "note": "scripts/gen_currency.py is outside src/**/*.py, so the when-glob does not match."
+}

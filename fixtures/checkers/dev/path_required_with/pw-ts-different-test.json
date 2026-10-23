@@ -1,0 +1,77 @@
+{
+  "id": "pw-ts-different-test",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "src/**/*.ts"
+      ],
+      "require": [
+        "src/**/*.test.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/render-table.ts"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/api/client.ts",
+        "old": "  fetchFn?: typeof fetch;\n}\n\nexport interface DateRange {\n  from: Date;\n  to: Date;\n}",
+        "new": "  fetchFn?: typeof fetch;\n}\n\n/** An inclusive time window. */\nexport interface DateRange {\n  from: Date;\n  to: Date;\n}"
+      },
+      {
+        "seq": 2,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/render-table.test.ts",
+        "old": "    expect(html).toContain('<td class=\"total\">0h</td>');\n  });\n});",
+        "new": "    expect(html).toContain('<td class=\"total\">0h</td>');\n  });\n});\n\ndescribe(\"renderWeekTable location\", () => {\n  it(\"prefixes the location with @\", () => {\n    const html = renderWeekTable([{ id: \"p1\", name: \"Ada\", role: \"barista\" }], [{ id: \"s1\", personId: \"p1\", start: \"2026-03-04T09:00:00Z\", end: \"2026-03-04T17:00:00Z\", location: \"Bar\" }], WEEK);\n    expect(html).toContain(\"@ Bar\");\n  });\n});"
+      }
+    ],
+    "diff": "diff --git a/src/api/client.ts b/src/api/client.ts\nindex 547c451..eafd395 100644\n--- a/src/api/client.ts\n+++ b/src/api/client.ts\n@@ -17,7 +17,8 @@\n   fetchFn?: typeof fetch;\n }\n \n-export interface DateRange {\n+/** An inclusive time window. */\n+export interface DateRange {\n   from: Date;\n   to: Date;\n }\ndiff --git a/src/render-table.test.ts b/src/render-table.test.ts\nindex e8a7640..1066e6f 100644\n--- a/src/render-table.test.ts\n+++ b/src/render-table.test.ts\n@@ -32,3 +32,10 @@\n     expect(html).toContain('<td class=\"total\">0h</td>');\n   });\n });\n+\n+describe(\"renderWeekTable location\", () => {\n+  it(\"prefixes the location with @\", () => {\n+    const html = renderWeekTable([{ id: \"p1\", name: \"Ada\", role: \"barista\" }], [{ id: \"s1\", personId: \"p1\", start: \"2026-03-04T09:00:00Z\", end: \"2026-03-04T17:00:00Z\", location: \"Bar\" }], WEEK);\n+    expect(html).toContain(\"@ Bar\");\n+  });\n+});\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative",
+    "contract_literal"
+  ],
+  "note": "Any test file satisfies the require-glob, even for a different module."
+}

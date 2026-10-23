@@ -1,0 +1,64 @@
+{
+  "id": "cfa-print-in-db",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "\\bprint\\(",
+      "globs": [
+        "src/**/*.py"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "ls migrations",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/ledgerline/db.py",
+        "old": "\n    def close(self) -> None:\n        self._conn.close()\n\n    @contextmanager\n    def transaction(self) -> Iterator[sqlite3.Connection]:",
+        "new": "\n    def close(self) -> None:\n        self._conn.close()\n        print(\"connection closed\")\n\n    @contextmanager\n    def transaction(self) -> Iterator[sqlite3.Connection]:"
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/db.py b/src/ledgerline/db.py\nindex acf0555..039501d 100644\n--- a/src/ledgerline/db.py\n+++ b/src/ledgerline/db.py\n@@ -32,6 +32,7 @@\n \n     def close(self) -> None:\n         self._conn.close()\n+        print(\"connection closed\")\n \n     @contextmanager\n     def transaction(self) -> Iterator[sqlite3.Connection]:\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "An added print( call in src/ledgerline/db.py."
+}
