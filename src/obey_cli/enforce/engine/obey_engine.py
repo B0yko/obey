@@ -353,7 +353,7 @@ def matches_command(patterns: List[str], segment: Dict[str, Any]) -> bool:
 
 
 def _git_sub(segment: Dict[str, Any]) -> Tuple[str, List[str]]:
-    for v in segment["views"]:
+    for v in reversed(segment["views"]):  # the most unwrapped form has git's global options removed
         if v.startswith("git "):
             parts = v.split()
             return (parts[1] if len(parts) > 1 else "", parts[2:])
