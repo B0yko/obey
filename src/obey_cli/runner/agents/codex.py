@@ -14,6 +14,7 @@ from obey_cli.runner.agents.base import (
     as_dict,
     json_lines,
     relpath,
+    set_workdir,
     truncate,
 )
 from obey_cli.runner.sandbox import AGENT_HOME, Invocation
@@ -52,7 +53,7 @@ class Codex(Adapter):
                 "enabled = false",
                 "[history]",
                 'persistence = "none"',
-                f"[projects.{_toml(WORKDIR)}]",
+                f"[projects.{_toml(ctx.workdir)}]",
                 'trust_level = "trusted"',
                 "",
             ]
@@ -62,21 +63,25 @@ class Codex(Adapter):
             "exec",
             "--json",
             "-C",
-            WORKDIR,
-            # The container is the sandbox: Codex's own bubblewrap sandbox cannot create user namespaces in an
-            # unprivileged container, so every command would fail.
-            "--dangerously-bypass-approvals-and-sandbox",
+            ctx.workdir,
             "--skip-git-repo-check",
             "-m",
             ctx.model,
         ]
+        if ctx.local:
+            argv += ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"]
+        else:
+            # The container is the sandbox: Codex's own bubblewrap sandbox cannot create user namespaces in an
+            # unprivileged container, so every command would fail.
+            argv.append("--dangerously-bypass-approvals-and-sandbox")
         if ctx.enforced:
             argv.append("--dangerously-bypass-hook-trust")
         argv.append(prompt)
-        env = {"CODEX_HOME": CODEX_HOME, "OBEY_MODEL_TOKEN": DUMMY_TOKEN}
+        env = {"CODEX_HOME": f"{ctx.home}/.obey-codex", "OBEY_MODEL_TOKEN": DUMMY_TOKEN}
         return Invocation(argv=argv, env=env, home_files={".obey-codex/config.toml": config}, timeout_s=ctx.timeout_s)
 
-    def parse(self, stream: str, stderr: str = "") -> ParsedStream:
+    def parse(self, stream: str, stderr: str = "", workdir: str = WORKDIR) -> ParsedStream:
+        set_workdir(workdir)
         out = ParsedStream()
         messages: list[str] = []
         usage = {"input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0}

@@ -7,11 +7,13 @@ from typing import Any
 
 from obey_cli.runner.agents.base import (
     DUMMY_TOKEN,
+    WORKDIR,
     Adapter,
     ParsedStream,
     RunContext,
     json_lines,
     relpath,
+    set_workdir,
     truncate,
 )
 from obey_cli.runner.sandbox import AGENT_HOME, Invocation
@@ -53,7 +55,7 @@ class ClaudeCode(Adapter):
             "ANTHROPIC_DEFAULT_HAIKU_MODEL": ctx.model,
             "CLAUDE_CODE_SUBAGENT_MODEL": ctx.model,
             # An empty config directory: no global CLAUDE.md, settings, hooks, plugins or MCP servers.
-            "CLAUDE_CONFIG_DIR": CONFIG_DIR,
+            "CLAUDE_CONFIG_DIR": f"{ctx.home}/.obey-claude",
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
             "DISABLE_AUTOUPDATER": "1",
             "DISABLE_TELEMETRY": "1",
@@ -61,9 +63,13 @@ class ClaudeCode(Adapter):
             "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
             "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
         }
+        if ctx.local:
+            # No container around the agent: turn on Claude Code's own sandbox and forbid unsandboxed retries.
+            argv += ["--settings", '{"sandbox": {"enabled": true, "allowUnsandboxedCommands": false}}']
         return Invocation(argv=argv, env=env, home_files={".obey-claude/.keep": ""}, timeout_s=ctx.timeout_s)
 
-    def parse(self, stream: str, stderr: str = "") -> ParsedStream:
+    def parse(self, stream: str, stderr: str = "", workdir: str = WORKDIR) -> ParsedStream:
+        set_workdir(workdir)
         out = ParsedStream()
         pending: dict[str, dict[str, Any]] = {}
         texts: list[str] = []

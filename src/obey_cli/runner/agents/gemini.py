@@ -7,11 +7,13 @@ from typing import Any
 
 from obey_cli.runner.agents.base import (
     DUMMY_TOKEN,
+    WORKDIR,
     Adapter,
     ParsedStream,
     RunContext,
     json_lines,
     relpath,
+    set_workdir,
     truncate,
 )
 from obey_cli.runner.sandbox import AGENT_HOME, Invocation
@@ -35,17 +37,23 @@ class Gemini(Adapter):
             '"general":{"enableAutoUpdate":false,"enableAutoUpdateNotification":false}}'
         )
         env = {
-            "GEMINI_CLI_HOME": GEMINI_HOME,
+            "GEMINI_CLI_HOME": f"{ctx.home}/.obey-gemini",
             "GEMINI_API_KEY": DUMMY_TOKEN,
             # Gemini CLI accepts plain HTTP only on localhost; the entrypoint forwards 127.0.0.1:8788 to the gateway.
-            "GOOGLE_GEMINI_BASE_URL": f"http://127.0.0.1:8788/r/{ctx.run_id}/gemini",
-            "OBEY_LOCAL_FORWARD": "8788",
+            "GOOGLE_GEMINI_BASE_URL": ctx.base("gemini")
+            if ctx.local
+            else f"http://127.0.0.1:8788/r/{ctx.run_id}/gemini",
             "GEMINI_TELEMETRY_ENABLED": "false",
         }
+        if not ctx.local:
+            env["OBEY_LOCAL_FORWARD"] = "8788"
+        else:
+            argv.append("--sandbox")
         files = {".obey-gemini/.gemini/settings.json": settings}
         return Invocation(argv=argv, env=env, home_files=files, timeout_s=ctx.timeout_s)
 
-    def parse(self, stream: str, stderr: str = "") -> ParsedStream:
+    def parse(self, stream: str, stderr: str = "", workdir: str = WORKDIR) -> ParsedStream:
+        set_workdir(workdir)
         out = ParsedStream()
         pending: dict[str, dict[str, Any]] = {}
         chunks: list[str] = []

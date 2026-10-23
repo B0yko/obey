@@ -13,6 +13,7 @@ from obey_cli.runner.agents.base import (
     as_dict,
     json_lines,
     relpath,
+    set_workdir,
     truncate,
 )
 from obey_cli.runner.sandbox import AGENT_HOME, Invocation
@@ -44,12 +45,12 @@ class Copilot(Adapter):
             "--allow-all-tools",
             "--no-ask-user",
             "-C",
-            WORKDIR,
+            ctx.workdir,
             "--disable-client-telemetry",
             "--no-color",
         ]
         env = {
-            "COPILOT_HOME": COPILOT_HOME,
+            "COPILOT_HOME": f"{ctx.home}/.obey-copilot",
             "COPILOT_PROVIDER_BASE_URL": ctx.base("openai"),
             "COPILOT_PROVIDER_TYPE": "openai",
             "COPILOT_PROVIDER_API_KEY": DUMMY_TOKEN,
@@ -61,7 +62,8 @@ class Copilot(Adapter):
             env["GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS"] = "true"
         return Invocation(argv=argv, env=env, home_files={".obey-copilot/.keep": ""}, timeout_s=ctx.timeout_s)
 
-    def parse(self, stream: str, stderr: str = "") -> ParsedStream:
+    def parse(self, stream: str, stderr: str = "", workdir: str = WORKDIR) -> ParsedStream:
+        set_workdir(workdir)
         out = ParsedStream()
         pending: dict[str, dict[str, Any]] = {}
         texts: list[str] = []

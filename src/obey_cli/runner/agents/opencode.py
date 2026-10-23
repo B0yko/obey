@@ -14,6 +14,7 @@ from obey_cli.runner.agents.base import (
     as_dict,
     json_lines,
     relpath,
+    set_workdir,
     truncate,
 )
 from obey_cli.runner.sandbox import AGENT_HOME, Invocation
@@ -40,12 +41,12 @@ class OpenCode(Adapter):
             "share": "disabled",
             "provider": {"openrouter": {"options": {"baseURL": ctx.base("openai"), "apiKey": DUMMY_TOKEN}}},
         }
-        argv = [self.binary, "run", "--format", "json", "--dir", WORKDIR, "--auto", "-m", model, prompt]
+        argv = [self.binary, "run", "--format", "json", "--dir", ctx.workdir, "--auto", "-m", model, prompt]
         env = {
-            "XDG_CONFIG_HOME": f"{XDG}/config",
-            "XDG_DATA_HOME": f"{XDG}/data",
-            "XDG_CACHE_HOME": f"{XDG}/cache",
-            "XDG_STATE_HOME": f"{XDG}/state",
+            "XDG_CONFIG_HOME": f"{ctx.home}/.obey-xdg/config",
+            "XDG_DATA_HOME": f"{ctx.home}/.obey-xdg/data",
+            "XDG_CACHE_HOME": f"{ctx.home}/.obey-xdg/cache",
+            "XDG_STATE_HOME": f"{ctx.home}/.obey-xdg/state",
             "OPENROUTER_API_KEY": DUMMY_TOKEN,
             "OPENCODE_CONFIG_CONTENT": json.dumps(config),
             "OPENCODE_DISABLE_CLAUDE_CODE": "1",
@@ -56,7 +57,8 @@ class OpenCode(Adapter):
         files = {f".obey-xdg/{d}/.keep": "" for d in ("config", "data", "cache", "state")}
         return Invocation(argv=argv, env=env, home_files=files, timeout_s=ctx.timeout_s)
 
-    def parse(self, stream: str, stderr: str = "") -> ParsedStream:
+    def parse(self, stream: str, stderr: str = "", workdir: str = WORKDIR) -> ParsedStream:
+        set_workdir(workdir)
         out = ParsedStream()
         texts: list[str] = []
         usage = {"input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0}

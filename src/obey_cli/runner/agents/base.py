@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from obey_cli.runner.sandbox import WORK_ROOT, Invocation
+from obey_cli.runner.sandbox import AGENT_HOME, WORK_ROOT, Invocation
 
 WORKDIR = f"{WORK_ROOT}/work"
 DUMMY_TOKEN = "obey-dummy-token"  # noqa: S105 - agents never see a real key; the gateway swaps it
@@ -29,6 +29,9 @@ class RunContext:
     gateway_url: str  # e.g. http://obey-gw:8787
     timeout_s: int = 600
     enforced: bool = False
+    workdir: str = WORKDIR  # where the repository copy is, as the agent sees it
+    home: str = AGENT_HOME  # the agent's (empty) home directory
+    local: bool = False  # --unsafe-local: no container, so the agent's own sandbox must be on
 
     def base(self, api: str) -> str:
         return f"{self.gateway_url}/r/{self.run_id}/{api}"
@@ -48,7 +51,7 @@ class Adapter:
     def invocation(self, prompt: str, ctx: RunContext) -> Invocation:
         raise NotImplementedError
 
-    def parse(self, stream: str, stderr: str = "") -> ParsedStream:
+    def parse(self, stream: str, stderr: str = "", workdir: str = WORKDIR) -> ParsedStream:
         raise NotImplementedError
 
     def version_argv(self) -> list[str]:
@@ -72,13 +75,21 @@ def json_lines(text: str) -> Iterator[dict[str, Any]]:
             yield obj
 
 
+_WORKDIR = [WORKDIR]
+
+
+def set_workdir(path: str) -> None:
+    """Where relpath() strips from (the container path by default; a temporary clone in --unsafe-local)."""
+    _WORKDIR[0] = path.rstrip("/")
+
+
 def relpath(path: str) -> str:
-    """Repository-relative POSIX path for an absolute path inside the sandbox work directory."""
+    """Repository-relative POSIX path for an absolute path inside the work directory."""
     p = path.replace("\\", "/")
-    for prefix in (WORKDIR + "/", "./"):
+    for prefix in (_WORKDIR[0] + "/", WORKDIR + "/", "./"):
         if p.startswith(prefix):
             p = p[len(prefix) :]
-    return p.lstrip("/") if p.startswith(WORKDIR) else p
+    return p
 
 
 def truncate(text: str, limit: int = 4000) -> str:
