@@ -166,6 +166,16 @@ def cmd_run(args: argparse.Namespace) -> int:
             err("Docker is not available. Start Docker (or colima), or use --unsafe-local (read the README first).")
             return 2
         image = args.image or (config.get("sandbox") or {}).get("image") or DEFAULT_IMAGE
+        import subprocess
+
+        from obey_cli.runner.sandbox import docker_cmd
+
+        if subprocess.run([*docker_cmd(), "image", "inspect", image], capture_output=True, check=False).returncode:
+            err(
+                f"sandbox image {image} not found. Build it once with `obey doctor --build-image` (a few GB: Python, "
+                "Node, Go and the agent CLIs from npm), or set sandbox.image in obey.yaml."
+            )
+            return 2
         box = DockerSandbox(image)
     allow = list((config.get("sandbox") or {}).get("allow_hosts") or cfg.DEFAULT_ALLOW_HOSTS)
     remaining = ledger.remaining()
