@@ -1,0 +1,214 @@
+{
+  "dev": {
+    "cases": 25,
+    "frozen_manifest_ok": null,
+    "labels": 267,
+    "params_correct": {
+      "ci_high": 0.9912272258389375,
+      "ci_low": 0.9436530874983499,
+      "k": 174,
+      "n": 178,
+      "value": 0.9775280898876404
+    },
+    "per_type": {
+      "command_forbidden": {
+        "found": 23,
+        "labels": 23,
+        "params_ok": 22
+      },
+      "command_required": {
+        "found": 17,
+        "labels": 17,
+        "params_ok": 16
+      },
+      "commit_message": {
+        "found": 9,
+        "labels": 9,
+        "params_ok": 9
+      },
+      "content_forbidden_added": {
+        "found": 43,
+        "labels": 43,
+        "params_ok": 41
+      },
+      "content_required_added": {
+        "found": 8,
+        "labels": 8,
+        "params_ok": 8
+      },
+      "dependency_unchanged": {
+        "found": 14,
+        "labels": 15,
+        "params_ok": 14
+      },
+      "file_naming": {
+        "found": 13,
+        "labels": 14,
+        "params_ok": 13
+      },
+      "final_message": {
+        "found": 7,
+        "labels": 7,
+        "params_ok": 7
+      },
+      "no_commit": {
+        "found": 11,
+        "labels": 11,
+        "params_ok": 11
+      },
+      "no_push": {
+        "found": 11,
+        "labels": 11,
+        "params_ok": 11
+      },
+      "path_forbidden": {
+        "found": 12,
+        "labels": 13,
+        "params_ok": 12
+      },
+      "path_required_with": {
+        "found": 10,
+        "labels": 10,
+        "params_ok": 10
+      },
+      "uncheckable": {
+        "found": 78,
+        "labels": 86
+      }
+    },
+    "precision_active": {
+      "ci_high": 0.9999999999999999,
+      "ci_low": 0.978874681023748,
+      "k": 178,
+      "n": 178,
+      "value": 1.0
+    },
+    "precision_all": {
+      "ci_high": 0.9999999999999999,
+      "ci_low": 0.9853290657713424,
+      "k": 258,
+      "n": 258,
+      "value": 1.0
+    },
+    "recall_active": {
+      "ci_high": 0.9943474051424234,
+      "ci_low": 0.9524098922545808,
+      "k": 178,
+      "n": 181,
+      "value": 0.9834254143646409
+    },
+    "recall_all": {
+      "ci_high": 0.9768421965858679,
+      "ci_low": 0.9277460487543626,
+      "k": 256,
+      "n": 267,
+      "value": 0.9588014981273408
+    },
+    "split": "dev"
+  },
+  "heldout": {
+    "cases": 15,
+    "frozen_manifest_ok": true,
+    "labels": 136,
+    "params_correct": {
+      "ci_high": 0.8525010440607586,
+      "ci_low": 0.6486674241743136,
+      "k": 49,
+      "n": 64,
+      "value": 0.765625
+    },
+    "per_type": {
+      "command_forbidden": {
+        "found": 7,
+        "labels": 10,
+        "params_ok": 4
+      },
+      "command_required": {
+        "found": 7,
+        "labels": 9,
+        "params_ok": 6
+      },
+      "commit_message": {
+        "found": 3,
+        "labels": 5,
+        "params_ok": 3
+      },
+      "content_forbidden_added": {
+        "found": 17,
+        "labels": 20,
+        "params_ok": 11
+      },
+      "content_required_added": {
+        "found": 4,
+        "labels": 6,
+        "params_ok": 3
+      },
+      "dependency_unchanged": {
+        "found": 6,
+        "labels": 7,
+        "params_ok": 4
+      },
+      "file_naming": {
+        "found": 4,
+        "labels": 8,
+        "params_ok": 2
+      },
+      "final_message": {
+        "found": 2,
+        "labels": 4,
+        "params_ok": 2
+      },
+      "no_commit": {
+        "found": 4,
+        "labels": 5,
+        "params_ok": 4
+      },
+      "no_push": {
+        "found": 4,
+        "labels": 4,
+        "params_ok": 4
+      },
+      "path_forbidden": {
+        "found": 6,
+        "labels": 8,
+        "params_ok": 6
+      },
+      "path_required_with": {
+        "labels": 5
+      },
+      "uncheckable": {
+        "found": 31,
+        "labels": 45
+      }
+    },
+    "precision_active": {
+      "ci_high": 0.9846560248779613,
+      "ci_low": 0.8764216691090624,
+      "k": 64,
+      "n": 67,
+      "value": 0.9552238805970149
+    },
+    "precision_all": {
+      "ci_high": 0.9983934246956784,
+      "ci_low": 0.9502943479206695,
+      "k": 109,
+      "n": 110,
+      "value": 0.990909090909091
+    },
+    "recall_active": {
+      "ci_high": 0.7873650972851531,
+      "ci_low": 0.6027596483701374,
+      "k": 64,
+      "n": 91,
+      "value": 0.7032967032967034
+    },
+    "recall_all": {
+      "ci_high": 0.7693290671143069,
+      "ci_low": 0.6168225109326528,
+      "k": 95,
+      "n": 136,
+      "value": 0.6985294117647058
+    },
+    "split": "heldout"
+  }
+}

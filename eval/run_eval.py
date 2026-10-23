@@ -34,6 +34,8 @@ def verify_manifest(directory: Path) -> bool:
         return False
     for line in manifest.read_text().splitlines():
         digest, _, rel = line.partition("  ")
+        if rel.lstrip("./") == "MANIFEST.sha256":
+            continue  # written while the manifest was being created; not data
         path = directory / rel
         if not path.exists() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
             return False
