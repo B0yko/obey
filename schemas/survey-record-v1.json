@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/B0yko/obey/schemas/survey-record-v1.json",
+  "title": "obey survey sample record",
+  "description": "One surveyed repository. URLs, SHAs, licence ids and derived booleans only; never file contents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["repo", "url", "commit_sha", "path", "blob_sha", "license_spdx", "stars", "default_branch",
+               "size_slice", "tree_truncated", "has_claude_md", "has_gemini_md", "has_cursor_rules",
+               "has_copilot_instructions", "claude_settings_hooks", "gemini_settings_hooks", "enforcement"],
+  "properties": {
+    "repo": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
+    "url": {"type": "string", "format": "uri"},
+    "commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "path": {"const": "AGENTS.md"},
+    "blob_sha": {"type": "string"},
+    "license_spdx": {"type": ["string", "null"]},
+    "stars": {"type": "integer", "minimum": 0},
+    "default_branch": {"type": "string"},
+    "size_slice": {"type": "string"},
+    "tree_truncated": {"type": "boolean"},
+    "has_claude_md": {"type": "boolean"},
+    "has_gemini_md": {"type": "boolean"},
+    "has_cursor_rules": {"type": "boolean"},
+    "has_copilot_instructions": {"type": "boolean"},
+    "claude_settings_hooks": {"type": "boolean"},
+    "gemini_settings_hooks": {"type": "boolean"},
+    "enforcement": {"type": "object", "additionalProperties": {"type": "boolean"}}
+  }
+}
