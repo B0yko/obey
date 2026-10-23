@@ -12,9 +12,7 @@ from obey_cli import __version__
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="obey",
-        description=(
-            "Unit tests for AGENTS.md: measure which rules your coding agent follows, then enforce them."
-        ),
+        description=("Unit tests for AGENTS.md: measure which rules your coding agent follows, then enforce them."),
     )
     parser.add_argument("--version", action="version", version=f"obey {__version__}")
     parser.add_subparsers(dest="command", metavar="<command>")
