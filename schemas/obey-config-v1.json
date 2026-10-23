@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/B0yko/obey/schemas/obey-config-v1.json",
+  "title": "obey.yaml",
+  "type": "object",
+  "required": ["version", "rules"],
+  "additionalProperties": false,
+  "$defs": {
+    "globs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "regex": {"type": "string", "minLength": 1},
+    "checker": {
+      "type": "object",
+      "required": ["type", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["command_forbidden", "command_required", "path_forbidden", "path_required_with",
+                          "dependency_unchanged", "content_forbidden_added", "content_required_added",
+                          "commit_message", "no_commit", "no_push", "file_naming", "final_message"]},
+        "params": {"type": "object"}
+      },
+      "allOf": [
+        {"if": {"properties": {"type": {"const": "command_forbidden"}}},
+         "then": {"properties": {"params": {"required": ["patterns"], "additionalProperties": false, "properties": {
+           "patterns": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/regex"}},
+           "preferred": {"type": "string"},
+           "preferred_patterns": {"type": "array", "items": {"$ref": "#/$defs/regex"}},
+           "manual_edit_paths": {"$ref": "#/$defs/globs"}}}}}},
+        {"if": {"properties": {"type": {"const": "command_required"}}},
+         "then": {"properties": {"params": {"required": ["pattern"], "additionalProperties": false, "properties": {
+           "pattern": {"$ref": "#/$defs/regex"}, "edit_globs": {"$ref": "#/$defs/globs"},
+           "require_success": {"type": "boolean"}}}}}},
+        {"if": {"properties": {"type": {"const": "path_forbidden"}}},
+         "then": {"properties": {"params": {"required": ["globs"], "additionalProperties": false, "properties": {
+           "globs": {"$ref": "#/$defs/globs", "minItems": 1}, "existing_only": {"type": "boolean"}}}}}},
+        {"if": {"properties": {"type": {"const": "path_required_with"}}},
+         "then": {"properties": {"params": {"required": ["when", "require"], "additionalProperties": false,
+           "properties": {"when": {"$ref": "#/$defs/globs"}, "require": {"$ref": "#/$defs/globs"}}}}}},
+        {"if": {"properties": {"type": {"const": "dependency_unchanged"}}},
+         "then": {"properties": {"params": {"additionalProperties": false, "properties": {
+           "manifests": {"$ref": "#/$defs/globs"}, "allow": {"type": "array", "items": {"type": "string"}}}}}}},
+        {"if": {"properties": {"type": {"const": "content_forbidden_added"}}},
+         "then": {"properties": {"params": {"required": ["regex", "globs"], "additionalProperties": false,
+           "properties": {"regex": {"$ref": "#/$defs/regex"}, "globs": {"$ref": "#/$defs/globs"}}}}}},
+        {"if": {"properties": {"type": {"const": "content_required_added"}}},
+         "then": {"properties": {"params": {"required": ["regex", "globs"], "additionalProperties": false,
+           "properties": {"regex": {"$ref": "#/$defs/regex"}, "globs": {"$ref": "#/$defs/globs"},
+                          "scope": {"const": "new_files"}, "first_lines": {"type": "integer", "minimum": 1}}}}}},
+        {"if": {"properties": {"type": {"const": "commit_message"}}},
+         "then": {"properties": {"params": {"required": ["regex"], "additionalProperties": false,
+           "properties": {"regex": {"$ref": "#/$defs/regex"}}}}}},
+        {"if": {"properties": {"type": {"enum": ["no_commit", "no_push"]}}},
+         "then": {"properties": {"params": {"maxProperties": 0}}}},
+        {"if": {"properties": {"type": {"const": "file_naming"}}},
+         "then": {"properties": {"params": {"required": ["globs", "pattern"], "additionalProperties": false,
+           "properties": {"globs": {"$ref": "#/$defs/globs"}, "pattern": {"$ref": "#/$defs/regex"}}}}}},
+        {"if": {"properties": {"type": {"const": "final_message"}}},
+         "then": {"properties": {"params": {"additionalProperties": false, "minProperties": 1, "maxProperties": 1,
+           "properties": {"required": {"$ref": "#/$defs/regex"}, "forbidden": {"$ref": "#/$defs/regex"}}}}}}
+      ]
+    },
+    "probe": {
+      "type": "object",
+      "required": ["id", "template", "instruction"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "template": {"type": "string"},
+        "instruction": {"type": "string", "minLength": 1},
+        "setup_patch": {"type": ["string", "null"]},
+        "domain": {"type": ["string", "null"]},
+        "control": {"type": "boolean"}
+      }
+    }
+  },
+  "properties": {
+    "version": {"const": 1},
+    "generated_by": {"type": "string"},
+    "sources": {"type": "array", "items": {"type": "object", "required": ["file", "sha256"],
+      "additionalProperties": false, "properties": {"file": {"type": "string"},
+      "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "kind": {"type": "string"},
+      "scope": {"$ref": "#/$defs/globs"}, "loaded_by": {"type": "array", "items": {"type": "string"}}}}},
+    "sandbox": {"type": "object", "additionalProperties": false, "properties": {
+      "image": {"type": ["string", "null"]},
+      "allow_hosts": {"type": "array", "items": {"type": "string"}},
+      "timeout_s": {"type": "integer", "minimum": 30},
+      "cpus": {"type": "string"}, "memory": {"type": "string"}}},
+    "agents": {"type": "array", "items": {"type": "object", "required": ["agent"], "additionalProperties": false,
+      "properties": {"agent": {"type": "string"}, "model": {"type": "string"}}}},
+    "rules": {"type": "array", "items": {
+      "type": "object",
+      "required": ["id", "text", "source", "status", "checker"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "text": {"type": "string", "minLength": 1},
+        "source": {"type": "object", "required": ["file", "lines"], "additionalProperties": false, "properties": {
+          "file": {"type": "string"}, "lines": {"type": "array", "items": {"type": "integer", "minimum": 1},
+          "minItems": 2, "maxItems": 2}}},
+        "scope": {"type": "object", "additionalProperties": false, "properties": {
+          "paths": {"$ref": "#/$defs/globs"}, "agents": {"type": ["array", "null"], "items": {"type": "string"}}}},
+        "checker": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/checker"}]},
+        "status": {"enum": ["active", "proposed", "uncheckable", "disabled"]},
+        "reason": {"type": ["string", "null"]},
+        "origin": {"enum": ["pattern", "llm", "user"]},
+        "probes": {"type": "array", "items": {"$ref": "#/$defs/probe"}}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"enum": ["active", "proposed"]}}},
+         "then": {"properties": {"checker": {"$ref": "#/$defs/checker"}}}},
+        {"if": {"properties": {"status": {"enum": ["uncheckable", "disabled"]}}},
+         "then": {"required": ["reason"], "properties": {"reason": {"type": "string", "minLength": 1}}}}
+      ]
+    }}
+  }
+}
