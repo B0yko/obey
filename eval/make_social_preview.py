@@ -30,8 +30,14 @@ def main() -> int:
     lines = textwrap.wrap(args.headline, 62)
     for i, line in enumerate(lines[:4]):
         fig.text(0.07, 0.50 - i * 0.075, line, fontsize=23, color=fg, family="DejaVu Sans")
-    fig.text(0.07, 0.08, "Measure which rules your coding agent follows from what it did, then enforce the rest with hooks.",
-             fontsize=16, color=muted, family="DejaVu Sans")
+    fig.text(
+        0.07,
+        0.08,
+        "Measure which rules your coding agent follows from what it did, then enforce the rest with hooks.",
+        fontsize=16,
+        color=muted,
+        family="DejaVu Sans",
+    )
     fig.text(0.93, 0.88, "github.com/B0yko/obey", fontsize=16, color=muted, ha="right", family="DejaVu Sans")
     args.out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, facecolor=bg, metadata={"Software": None})
