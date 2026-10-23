@@ -58,13 +58,18 @@ A denial reads, for example:
 - Before changing an existing file, obey saves it as `.obey/backup/<path>.orig`. `--remove` deletes obey's entries
   and, if nothing else changed, puts the original bytes back; files obey created are deleted.
 - obey never writes outside the repository: not to `~/.claude`, `~/.codex`, `~/.cursor`, `~/.gemini` or
-  `~/.copilot`. The tests assert this for every target.
+  `~/.copilot`, and not through a symlinked directory. Every path is checked before the first file is written, so a
+  refusal leaves the repository as it was. The tests assert this for every target.
+- The hook scripts under `.obey/` are written before the settings that call them, and removed after them.
+- Settings files with comments (JSONC) are refused with an error instead of being rewritten without the comments.
 
 ## Failing open
 
 If the hook hits an internal error (missing rules, a payload it cannot read, a bug), it allows the action and
 prints a warning that names the error (`systemMessage` for Claude Code and Codex, stderr elsewhere). A broken obey
-must never lock you out of your agent; `obey lint` tells you when the enforcement files are out of date.
+must never lock you out of your agent; `obey lint` tells you when the enforcement files are out of date. The
+generated commands also skip quietly when `.obey/hooks/obey_hook.py` is missing (for Cursor, which may run the
+command without a shell, the command is plain `python3 .obey/hooks/obey_hook.py cursor`).
 See `docs/adr/0007-fail-open-hooks.md`.
 
 ## Trust prompts

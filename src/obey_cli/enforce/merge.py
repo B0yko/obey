@@ -8,16 +8,27 @@ Removing deletes only obey's entries; if what remains equals the backed-up origi
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
+
+from obey_cli.config import ConfigError
 
 MARKER = ".obey/hooks/obey_hook.py"
 BACKUP_DIR = ".obey/backup"
 
 
+# Commands obey generates end with the agent name (and "stop"); a user's hook that only mentions the script is kept.
+_OBEY_COMMAND = re.compile(r"\.obey/hooks/obey_hook\.py\b.*\b(?:claude|codex|cursor|gemini|copilot)(?: stop)?\s*$")
+
+
 def is_obey_entry(entry: Any) -> bool:
-    return MARKER in json.dumps(entry)
+    if not isinstance(entry, dict):
+        return False
+    if any(isinstance(entry.get(k), str) and _OBEY_COMMAND.search(entry[k]) for k in ("command", "bash")):
+        return True
+    return isinstance(entry.get("hooks"), list) and any(is_obey_entry(h) for h in entry["hooks"])
 
 
 def _strip(value: Any) -> Any:
@@ -101,9 +112,16 @@ class Plan:
     def merge_json(self, rel: str, edit: Callable[[dict[str, Any]], dict[str, Any]]) -> None:
         path = self.root / rel
         before = path.read_text(encoding="utf-8") if path.exists() else None
-        data = json.loads(before) if before and before.strip() else {}
+        try:
+            data = json.loads(before) if before and before.strip() else {}
+        except json.JSONDecodeError as exc:
+            # Gemini and Cursor accept JSON with comments; obey does not rewrite those (it would drop the comments).
+            raise ConfigError(
+                f"{rel} is not plain JSON ({exc.msg} at line {exc.lineno}); remove comments or trailing commas, "
+                "or leave this agent out with --targets"
+            ) from exc
         if not isinstance(data, dict):
-            raise ValueError(f"{rel} is not a JSON object; refusing to change it")
+            raise ConfigError(f"{rel} is not a JSON object; refusing to change it")
         after_data = edit(data)
         if before is not None and after_data == data:
             return
@@ -137,22 +155,42 @@ class Plan:
 
     def apply(self) -> list[str]:
         root = self.root.resolve()
-        written = []
-        for rel, (before, after) in sorted(self.changes.items()):
+
+        def inside(rel: str) -> Path:
             path = (self.root / rel).resolve()
-            if not path.is_relative_to(root):  # obey never writes outside the repository
-                raise ValueError(f"refusing to write outside the repository: {rel}")
+            if not path.is_relative_to(root):  # obey never writes outside the repository, symlinks included
+                raise ConfigError(f"refusing to write outside the repository: {rel}")
+            return path
+
+        # Check every path (and every backup) before writing anything, so a refusal leaves the repository as it was.
+        steps = []
+        for rel, (before, after) in self.changes.items():
+            backup = None
             if before is not None and after is not None and rel.endswith(".json") and not rel.startswith(".obey/"):
-                backup = self.root / BACKUP_DIR / (rel + ".orig")
-                if not backup.exists():
-                    backup.parent.mkdir(parents=True, exist_ok=True)
-                    backup.write_text(before, encoding="utf-8")
+                backup = inside(f"{BACKUP_DIR}/{rel}.orig")
+            steps.append((rel, inside(rel), before, after, backup))
+
+        # The hook scripts go in before the settings that call them, and leave after them.
+        def order(step: tuple[str, Path, str | None, str | None, Path | None]) -> tuple[int, str]:
+            rel, after = step[0], step[3]
+            return (0 if after is not None else 2) if rel.startswith(".obey/") else 1, rel
+
+        written = []
+        for rel, path, before, after, backup in sorted(steps, key=order):
+            if backup is not None and before is not None and not backup.exists():
+                _write(backup, before)
             if after is None:
                 path.unlink(missing_ok=True)
             else:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(after, encoding="utf-8")
+                _write(path, after)
                 if rel.endswith((".py", "pre-commit")) and rel.startswith(".obey/"):
                     path.chmod(0o755)
             written.append(rel)
         return written
+
+
+def _write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.obey-tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)

@@ -43,13 +43,17 @@ def _types(rules: Sequence[dict[str, Any]]) -> set[str]:
     return {r["checker"]["type"] for r in rules}
 
 
-def _cmd(prefix: str, agent: str, event: str | None = None) -> str:
-    return f"{prefix} {agent}" + (f" {event}" if event else "")
+def _cmd(script: str, agent: str, event: str | None = None, *, shell: bool = True) -> str:
+    args = f" {agent}" + (f" {event}" if event else "")
+    if not shell:
+        return f"python3 {script}{args}"
+    # A missing script must not block the agent (python3 exits 2, which agents read as "block"): skip quietly.
+    return f'h={script}; [ -f "$h" ] || exit 0; python3 "$h"{args}'
 
 
 # --------------------------------------------------------------------------------------------- Claude Code
 
-CLAUDE_CMD = f'python3 "$CLAUDE_PROJECT_DIR/{HOOK}"'
+CLAUDE_CMD = f'"$CLAUDE_PROJECT_DIR/{HOOK}"'
 
 
 def claude_hooks(rules: Sequence[dict[str, Any]]) -> dict[str, list[Any]]:
@@ -93,7 +97,7 @@ def _remove_json(rel: str, empty_keys: frozenset[str] | set[str] = frozenset()) 
 
 # --------------------------------------------------------------------------------------------- Codex CLI
 
-GIT_ROOT_CMD = f'python3 "$(git rev-parse --show-toplevel 2>/dev/null || pwd)/{HOOK}"'
+GIT_ROOT_CMD = f'"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/{HOOK}"'
 
 
 def codex_hooks(rules: Sequence[dict[str, Any]]) -> dict[str, list[Any]]:
@@ -123,18 +127,20 @@ def _write_codex(plan: Plan, rules: Sequence[dict[str, Any]]) -> None:
 
 # --------------------------------------------------------------------------------------------- Cursor
 
-CURSOR_CMD = f"python3 {HOOK}"  # Cursor runs project hooks from the project root
+CURSOR_CMD = HOOK  # Cursor runs project hooks from the project root; not known to use a shell
 
 
 def cursor_hooks(rules: Sequence[dict[str, Any]]) -> dict[str, list[Any]]:
     types = _types(rules)
     hooks: dict[str, list[Any]] = {}
     if types & SHELL_TYPES:
-        hooks["beforeShellExecution"] = [{"command": _cmd(CURSOR_CMD, "cursor"), "timeout": 10}]
+        hooks["beforeShellExecution"] = [{"command": _cmd(CURSOR_CMD, "cursor", shell=False), "timeout": 10}]
     if types & EDIT_TYPES:
-        hooks["preToolUse"] = [{"command": _cmd(CURSOR_CMD, "cursor"), "matcher": "Write|Delete", "timeout": 10}]
+        hooks["preToolUse"] = [
+            {"command": _cmd(CURSOR_CMD, "cursor", shell=False), "matcher": "Write|Delete", "timeout": 10}
+        ]
     if types & STOP_TYPES:
-        hooks["stop"] = [{"command": _cmd(CURSOR_CMD, "cursor", "stop"), "loop_limit": 3}]
+        hooks["stop"] = [{"command": _cmd(CURSOR_CMD, "cursor", "stop", shell=False), "loop_limit": 3}]
     return hooks
 
 
@@ -153,7 +159,7 @@ def _write_cursor(plan: Plan, rules: Sequence[dict[str, Any]]) -> None:
 
 # --------------------------------------------------------------------------------------------- Gemini CLI
 
-GEMINI_CMD = f'python3 "$GEMINI_PROJECT_DIR/{HOOK}"'
+GEMINI_CMD = f'"$GEMINI_PROJECT_DIR/{HOOK}"'
 
 
 def gemini_hooks(rules: Sequence[dict[str, Any]]) -> dict[str, list[Any]]:
@@ -194,7 +200,7 @@ def _write_gemini(plan: Plan, rules: Sequence[dict[str, Any]]) -> None:
 
 # --------------------------------------------------------------------------------------------- Copilot CLI
 
-COPILOT_CMD = f"python3 {HOOK}"
+COPILOT_CMD = HOOK  # the "bash" key runs in bash
 
 
 def copilot_hooks(rules: Sequence[dict[str, Any]]) -> dict[str, list[Any]]:

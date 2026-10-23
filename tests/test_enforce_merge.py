@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from obey_cli.config import ConfigError
 from obey_cli.enforce.merge import Plan, add_hooks, remove_obey
 from obey_cli.enforce.targets import TARGETS
 
@@ -147,3 +149,71 @@ def test_refuses_non_object_json(tmp_path: Path) -> None:
     (tmp_path / ".claude/settings.json").write_text("[1, 2]\n")
     with pytest.raises(ValueError, match="not a JSON object"):
         _apply(tmp_path, lambda p: TARGETS["claude"].write(p, RULES))
+
+
+def test_jsonc_settings_are_refused_with_a_clear_error(tmp_path: Path) -> None:
+    (tmp_path / ".gemini").mkdir()
+    (tmp_path / ".gemini/settings.json").write_text('{\n  // my settings\n  "theme": "dark"\n}\n')
+    with pytest.raises(ConfigError, match="not plain JSON"):
+        _apply(tmp_path, lambda p: TARGETS["gemini"].write(p, RULES))
+
+
+def test_a_refused_path_leaves_the_repository_unchanged(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    repo.mkdir()
+    outside.mkdir()
+    (repo / ".gemini").symlink_to(outside)
+    plan = Plan(repo)
+    TARGETS["claude"].write(plan, RULES)
+    plan.put(".obey/hooks/obey_hook.py", "# hook\n")
+    TARGETS["gemini"].write(plan, RULES)
+    with pytest.raises(ValueError, match="outside the repository"):
+        plan.apply()
+    assert not (repo / ".claude").exists() and not (repo / ".obey").exists() and list(outside.iterdir()) == []
+
+
+def test_backups_are_not_written_through_a_symlink(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    elsewhere = tmp_path / "elsewhere"
+    (repo / ".claude").mkdir(parents=True)
+    elsewhere.mkdir()
+    (repo / ".claude/settings.json").write_text('{"model": "x"}\n')
+    (repo / ".obey").symlink_to(elsewhere)
+    with pytest.raises(ValueError, match="outside the repository"):
+        _apply(repo, lambda p: TARGETS["claude"].write(p, RULES))
+    assert list(elsewhere.iterdir()) == []
+
+
+def test_hook_scripts_are_written_before_the_settings_that_call_them(tmp_path: Path) -> None:
+    plan = Plan(tmp_path)
+    TARGETS["claude"].write(plan, RULES)
+    plan.put(".obey/hooks/obey_hook.py", "# hook\n")
+    written = plan.apply()
+    assert written.index(".obey/hooks/obey_hook.py") < written.index(".claude/settings.json")
+    removal = Plan(tmp_path)
+    TARGETS["claude"].remove(removal)
+    removal.put(".obey/hooks/obey_hook.py", None)
+    removed = removal.apply()
+    assert removed.index(".claude/settings.json") < removed.index(".obey/hooks/obey_hook.py")
+
+
+def test_generated_commands_skip_a_missing_script(tmp_path: Path) -> None:
+    plan = Plan(tmp_path)
+    TARGETS["claude"].write(plan, RULES)
+    settings = json.loads(plan.changes[".claude/settings.json"][1] or "{}")
+    command = settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    proc = subprocess.run(
+        ["sh", "-c", command], env={"CLAUDE_PROJECT_DIR": str(tmp_path), "PATH": "/usr/bin:/bin"}, input="{}", text=True
+    )
+    assert proc.returncode == 0
+
+
+def test_a_user_hook_that_mentions_the_script_is_kept() -> None:
+    user = {"type": "command", "command": "echo 'obey uses .obey/hooks/obey_hook.py'"}
+    ours = {
+        "type": "command",
+        "command": 'h=".obey/hooks/obey_hook.py"; [ -f "$h" ] || exit 0; python3 "$h" claude stop',
+    }
+    data = {"hooks": {"Stop": [{"hooks": [user]}, {"hooks": [ours]}]}}
+    assert remove_obey(data) == {"hooks": {"Stop": [{"hooks": [user]}]}}
