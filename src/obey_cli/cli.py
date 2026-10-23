@@ -146,6 +146,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("init", "extract rules and create probes in one step", c.cmd_init)
 
+    p = add("study", "reproduce the study: survey, run (pilot, main, enforce), plan, report", c.cmd_study)
+    p.add_argument("study_command", choices=["survey", "run", "plan", "report"])
+    p.add_argument("--collect", action="store_true", help="survey: sample repositories (needs GITHUB_TOKEN)")
+    p.add_argument("--analyse", action="store_true", help="survey: compute features at the pinned commits")
+    p.add_argument("--llm", action="store_true", help="survey: classify unmapped rules with an LLM")
+    p.add_argument("--llm-model", default=None)
+    p.add_argument("--target", type=int, default=600)
+    p.add_argument("--phase", choices=["pilot", "main", "enforce"], default="pilot")
+    p.add_argument("--trials", type=int, default=1)
+    p.add_argument("--budget", type=float, default=3.0)
+    p.add_argument("--concurrency", type=int, default=6)
+    p.add_argument("--image", default=None)
+    p.add_argument("--repos", default=None)
+    p.add_argument("--slots", default=None)
+    p.add_argument("--harnesses", default=None)
+    p.add_argument("--estimate", action="store_true")
+
     p = add("precommit", "run .obey/pre-commit (for the pre-commit framework)", c.cmd_precommit)
     p.add_argument("--commit-msg", action="store_true", help="check the commit message file instead of staged files")
     p.add_argument("files", nargs="*")

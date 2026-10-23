@@ -445,3 +445,122 @@ def cmd_extract_from_commands(args: argparse.Namespace) -> int:
 
     defaults = {"llm": False, "llm_model": None, "budget": 1.0, "include_local": False, "dry_run": False}
     return cmd_extract(argparse.Namespace(**{**defaults, **vars(args)}))
+
+
+# --------------------------------------------------------------------------------------------- study
+
+
+def cmd_study(args: argparse.Namespace) -> int:
+    root = _root(args)
+    action = args.study_command
+    if action == "survey":
+        return _study_survey(args, root)
+    if action == "run":
+        return _study_run(args, root)
+    if action == "plan":
+        return _study_plan(args, root)
+    if action == "report":
+        from obey_cli.study.report import write_report
+
+        out(write_report(root))
+        return 0
+    err("choose one of: survey, run, plan, report")
+    return 2
+
+
+def _study_survey(args: argparse.Namespace, root: Path) -> int:
+    from obey_cli.study import survey
+
+    folder = root / "study" / "survey"
+    sample = folder / "sample.jsonl"
+    if args.collect:
+        token = os.environ.get("GITHUB_TOKEN", "")
+        if not token:
+            err("set GITHUB_TOKEN for GitHub code search")
+            return 2
+        survey.collect(token, sample, target=args.target, log=out)
+    if args.analyse:
+        survey.analyse(sample, folder / "features.jsonl", log=out)
+    if args.llm:
+        from obey_cli.llm import LLMConfig
+        from obey_cli.runner.ledger import Ledger
+
+        ledger = Ledger(root / ".obey" / "survey-ledger.jsonl", budget_usd=args.budget)
+        survey.llm_pass(sample, folder / "llm.jsonl", LLMConfig.from_env(args.llm_model), ledger, log=out)
+    summary = survey.summarise(folder / "features.jsonl", folder / "llm.jsonl", sample)
+    (folder / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    out(json.dumps({k: v for k, v in summary.items() if k not in ("types", "licences")}, indent=2))
+    return 0
+
+
+def _study_run(args: argparse.Namespace, root: Path) -> int:
+    from obey_cli.study import design as d
+    from obey_cli.study import experiment
+
+    design = d.load(root / "study" / "design.yaml")
+    key = _key()
+    filters = {
+        k: v.split(",") for k, v in (("repos", args.repos), ("slots", args.slots), ("harnesses", args.harnesses)) if v
+    }
+    if args.phase == "enforce":
+        rows = [
+            json.loads(line)
+            for line in (root / "study" / "results" / "main.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+        broken = sorted(
+            {
+                (r["repo"], r["slot"], r["harness"])
+                for r in rows
+                if r["condition"] == "imperative" and r["verdict"] == "violated"
+            }
+        )
+        out(f"enforce: {len(broken)} slot × repository × harness cells were violated in the imperative condition")
+        runs = [
+            experiment.StudyRun("enforce", d.Cell(repo, slot, "imperative", harness), t)
+            for repo, slot, harness in broken
+            for t in range(args.trials)
+        ]
+    else:
+        runs = experiment.plan(design, args.phase, args.trials, **filters)
+    if args.estimate:
+        out(f"{len(runs)} runs planned for phase {args.phase}")
+        return 0
+    if not key:
+        err("set OPENROUTER_API_KEY")
+        return 2
+    result = experiment.execute(
+        design,
+        runs,
+        root=root,
+        key=key,
+        image=args.image or DEFAULT_IMAGE,
+        budget=args.budget,
+        spent_before=0.0,
+        concurrency=args.concurrency,
+        results=root / "study" / "results",
+        enforce_rules=args.phase == "enforce",
+        progress=out,
+    )
+    out(json.dumps(result))
+    return 0 if not result["stopped"] else 3
+
+
+def _study_plan(args: argparse.Namespace, root: Path) -> int:
+    from obey_cli.study.analysis import trials_needed
+
+    rows = [
+        json.loads(line)
+        for line in (root / "study" / "results" / "pilot.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    plan = trials_needed(rows)
+    ok = [r for r in rows if r["status"] == "ok"]
+    plan["pilot_runs"] = len(rows)
+    plan["pilot_cost_usd"] = sum(r["cost_usd"] for r in rows)
+    plan["cost_per_run_usd"] = plan["pilot_cost_usd"] / len(ok) if ok else None
+    plan["main_runs"] = plan["trials_per_cell"] * 160
+    plan["main_cost_usd"] = plan["main_runs"] * (plan["cost_per_run_usd"] or 0)
+    (root / "study" / "results" / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+    out(json.dumps(plan, indent=2))
+    return 0
