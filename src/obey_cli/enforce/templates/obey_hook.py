@@ -8,36 +8,72 @@ Python 3.9+. Usage, as the agents' hook configs call it:
 
 The payload arrives on stdin. A violation produces the agent's own deny format. Any internal error allows the
 action and prints a warning (fail open), so a bug here can never lock you out of your agent.
+
+Paths are taken relative to the project this script is installed in; a relative path is resolved against the
+payload's cwd, and symlinks are followed. The stop event checks only what the agent itself changed in the session
+(from a Claude Code transcript), and gives up after MAX_STOP_BLOCKS blocked stops in a row.
 """
 
+import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-
-def _repo_root(start):
-    path = os.path.abspath(start or os.getcwd())
-    while True:
-        if os.path.exists(os.path.join(path, ".git")):
-            return path
-        parent = os.path.dirname(path)
-        if parent == path:
-            return os.path.abspath(start or os.getcwd())
-        path = parent
+# Blocked Stop events in a row that end the blocking, so a rule that cannot be met never traps an agent.
+MAX_STOP_BLOCKS = 3
 
 
-def _rel(path, root):
-    if not path:
-        return ""
-    if not os.path.isabs(path):
-        path = os.path.join(root, path)
-    rel = os.path.relpath(os.path.normpath(path), root)
+def _project_root():
+    """The project this hook was installed into (<root>/.obey/hooks/obey_hook.py), wherever the agent's cwd is."""
+    return os.path.dirname(os.path.dirname(HERE))
+
+
+def _payload_cwd(payload, root):
+    cwd = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("GEMINI_PROJECT_DIR")
+    if not isinstance(cwd, str) or not cwd:
+        return root
+    return cwd if os.path.isabs(cwd) else os.path.join(root, cwd)
+
+
+def _under(path, root):
+    try:
+        rel = os.path.relpath(path, root)
+    except ValueError:
+        return None
+    if rel == ".." or rel.startswith(".." + os.sep):
+        return None
     return rel.replace(os.sep, "/")
+
+
+def _rel_forms(path, root, cwd, follow=True):
+    """Repo-relative spellings of a path: as written (lexically normalised), then with symlinks resolved.
+
+    A relative path is taken against `cwd`. Both spellings are checked against the rules, so a link into a protected
+    directory (src/link -> ../secrets) and a repo reached through an alias are both seen. `follow=False` keeps the
+    last component as it is (rm and mv act on the link itself).
+    """
+    if not path:
+        return [""]
+    full = path if os.path.isabs(path) else os.path.join(cwd or root, path)
+    if follow:
+        resolved = os.path.realpath(full)
+    else:
+        resolved = os.path.join(os.path.realpath(os.path.dirname(full)), os.path.basename(full))
+    real_root = os.path.realpath(root)
+    forms = []
+    for cand in (os.path.normpath(full), resolved):
+        for base in (root, real_root):
+            rel = _under(cand, base)
+            if rel is not None and rel not in forms:
+                forms.append(rel)
+    return forms or [os.path.relpath(resolved, real_root).replace(os.sep, "/")]
 
 
 def _read(path):
@@ -57,33 +93,66 @@ def _args(value):
     return value if isinstance(value, dict) else {}
 
 
-def _file_action(kind, path, root, old=None, new=None, content=None):
-    rel = _rel(path, root)
-    current = _read(os.path.join(root, rel))
-    action = {"kind": kind, "path": rel, "exists": current is not None}
-    if kind == "edit":
-        action.update({"old": old or "", "new": new or ""})
-        if current is not None and old and old in current:
-            action["new_content"] = current.replace(old, new or "", 1)
-        action["current"] = current
-    elif kind == "write":
-        action["content"] = content or ""
-        action["current"] = current
+def _file_actions(kind, path, root, cwd, old=None, new=None, content=None):
+    """Actions for a file edit or write: one per spelling of the path (see _rel_forms)."""
+    actions = []
+    for rel in _rel_forms(path, root, cwd):
+        current = _read(os.path.join(os.path.realpath(root), rel))
+        action = {"kind": kind, "path": rel, "exists": current is not None}
+        if kind == "edit":
+            action.update({"old": old or "", "new": new or ""})
+            if current is not None and old and old in current:
+                action["new_content"] = current.replace(old, new or "", 1)
+            action["current"] = current
+        elif kind == "write":
+            action["content"] = content or ""
+            action["current"] = current
+        actions.append(action)
+    return actions
+
+
+def _delete_actions(path, root, cwd):
+    return [{"kind": "delete", "path": rel, "exists": True} for rel in _rel_forms(path, root, cwd, follow=False)]
+
+
+def _shell_action(command, root, cwd):
+    """A shell action with the files it writes, resolved against the working directory and symlinks.
+
+    Writes to files that exist are what an existing_only rule forbids, so the action also lists the targets that
+    exist on disk.
+    """
+    import obey_engine
+
+    action = {"kind": "shell", "command": command}
+    targets = obey_engine.shell_write_targets(command)
+    if targets:
+        real_root = os.path.realpath(root)
+        resolved, existing = [], []
+        for target in targets:
+            if target["path"] == "*":
+                resolved.append(target)
+                continue
+            for rel in _rel_forms(target["path"], root, cwd, follow=target["op"] == "write"):
+                resolved.append({"path": rel, "op": target["op"]})
+                if os.path.lexists(os.path.join(real_root, rel)):
+                    existing.append(rel)
+        action["targets"] = resolved
+        action["existing_paths"] = existing
     return action
 
 
-def _patch_actions(patch, root):
+def _patch_actions(patch, root, cwd):
     """Actions from an apply_patch envelope (*** Begin Patch / *** Update File: path / +line / -line)."""
     actions, current, kind, added, removed = [], None, None, [], []
 
     def flush():
         if current is not None:
             if kind == "delete":
-                actions.append({"kind": "delete", "path": _rel(current, root), "exists": True})
+                actions.extend(_delete_actions(current, root, cwd))
             elif kind == "add":
-                actions.append(_file_action("write", current, root, content="\n".join(added)))
+                actions.extend(_file_actions("write", current, root, cwd, content="\n".join(added)))
             else:
-                actions.append(_file_action("edit", current, root, old="\n".join(removed), new="\n".join(added)))
+                actions.extend(_file_actions("edit", current, root, cwd, old="\n".join(removed), new="\n".join(added)))
 
     for line in patch.splitlines():
         for marker, k in (("*** Add File: ", "add"), ("*** Update File: ", "update"), ("*** Delete File: ", "delete")):
@@ -93,7 +162,7 @@ def _patch_actions(patch, root):
                 break
         else:
             if line.startswith("*** Move to: ") and current is not None:
-                actions.append({"kind": "delete", "path": _rel(current, root), "exists": True})
+                actions.extend(_delete_actions(current, root, cwd))
                 current = line[len("*** Move to: ") :].strip()
             elif line.startswith("+") and not line.startswith("+++"):
                 added.append(line[1:])
@@ -103,8 +172,9 @@ def _patch_actions(patch, root):
     return actions
 
 
-def actions_from(agent, payload, root):
+def actions_from(agent, payload, root, cwd=None):
     """Normalise one agent's pre-tool payload into engine actions."""
+    cwd = cwd or root
     if agent in ("claude", "codex", "gemini") or (agent == "copilot" and "tool_name" in payload):
         tool = payload.get("tool_name", "")
         data = _args(payload.get("tool_input"))
@@ -112,7 +182,7 @@ def actions_from(agent, payload, root):
         tool, data = payload.get("toolName", ""), _args(payload.get("toolArgs"))
     elif agent == "cursor":
         if "command" in payload and "tool_name" not in payload:
-            return [{"kind": "shell", "command": payload.get("command", "")}]
+            return [_shell_action(_command_text(payload.get("command", "")), root, cwd)]
         tool, data = payload.get("tool_name", ""), _args(payload.get("tool_input"))
     elif agent == "opencode":
         tool, data = payload.get("tool", ""), _args(payload.get("args"))
@@ -122,12 +192,12 @@ def actions_from(agent, payload, root):
     low = name.lower()
     command = data.get("command")
     if low in ("bash", "shell", "run_shell_command", "powershell") or (low == "" and command):
-        return [{"kind": "shell", "command": str(command or "")}]
+        return [_shell_action(_command_text(command), root, cwd)]
     if low == "apply_patch":
         patch = data.get("command") or data.get("patch") or data.get("input") or data.get("patchText") or ""
         if isinstance(patch, list):
             patch = "\n".join(str(p) for p in patch)
-        return _patch_actions(str(patch), root)
+        return _patch_actions(str(patch), root, cwd)
     path = (
         data.get("file_path")
         or data.get("filePath")
@@ -138,7 +208,7 @@ def actions_from(agent, payload, root):
     )
     if low in ("write", "write_file", "create"):
         content = data.get("content") or data.get("file_text") or data.get("fileText") or data.get("contents") or ""
-        return [_file_action("write", path, root, content=str(content))]
+        return _file_actions("write", path, root, cwd, content=str(content))
     if low in ("edit", "replace", "str_replace_editor", "notebookedit", "multiedit"):
         if isinstance(data.get("edits"), list):
             old = "\n".join(str(e.get("old_string", "")) for e in data["edits"] if isinstance(e, dict))
@@ -146,10 +216,17 @@ def actions_from(agent, payload, root):
         else:
             old = data.get("old_string") or data.get("oldString") or data.get("old_str") or ""
             new = data.get("new_string") or data.get("newString") or data.get("new_str") or data.get("new_source") or ""
-        return [_file_action("edit", path, root, old=str(old), new=str(new))]
+        return _file_actions("edit", path, root, cwd, old=str(old), new=str(new))
     if low in ("delete", "delete_file"):
-        return [{"kind": "delete", "path": _rel(path, root), "exists": True}]
+        return _delete_actions(path, root, cwd)
     return []
+
+
+def _command_text(command):
+    """The command line: a string, or an argv list (a Codex shell call) joined the way a shell would read it."""
+    if isinstance(command, (list, tuple)):
+        return shlex.join(str(c) for c in command)
+    return str(command or "")
 
 
 def deny_output(agent, reason):
@@ -196,30 +273,72 @@ def _git(root, *args):
         return ""
 
 
-def _working_tree_run(root, payload):
-    """A run record of the uncommitted work, for stop-time checks."""
+def _working_tree_diff(root, paths=None):
+    """The uncommitted changes as a git diff, untracked files as new-file diffs; only those in `paths` when given."""
     import obey_engine
 
-    diff = _git(root, "diff", "HEAD", "--no-color", "--no-ext-diff")
+    if paths is not None and not paths:
+        return ""
+    spec = ["--", *sorted(paths)] if paths is not None else []
+    diff = _git(root, "--literal-pathspecs", "diff", "HEAD", "--relative", "--no-color", "--no-ext-diff", *spec)
     for path in _git(root, "ls-files", "--others", "--exclude-standard", "-z").split("\0"):
-        if path and not path.startswith(".obey/"):
+        if path and not path.startswith(".obey/") and (paths is None or path in paths):
             text = _read(os.path.join(root, path))
             if text is not None:
                 diff += obey_engine.new_file_diff(path, text)
-    base_files = [p for p in _git(root, "ls-files", "-z").split("\0") if p]
-    events = []
+    return diff
+
+
+def _agent_changes(events, root):
+    """Repo-relative paths that the agent's edits and shell commands wrote; None when a command's targets are unknown.
+
+    Event paths are rewritten to repo-relative ones, so the rules' globs match them.
+    """
+    import obey_engine
+
+    paths = set()
+    for ev in events:
+        if ev.get("denied"):
+            continue
+        kind = ev.get("type")
+        if kind in ("edit", "write", "delete") and ev.get("path"):
+            forms = _rel_forms(ev["path"], root, root)
+            ev["path"] = forms[0]
+            paths.update(forms)
+        elif kind == "shell":
+            for target in obey_engine.shell_write_targets(ev.get("command") or ""):
+                if target["path"] == "*":
+                    return None
+                paths.update(_rel_forms(target["path"], root, root, follow=target["op"] == "write"))
+    return paths
+
+
+def _stop_run(root, payload):
+    """(run record for the stop-time checks, whether the agent's commands are known).
+
+    With a Claude Code transcript the record holds the agent's own edits and commands, and only the files they
+    touched count as changed, so the user's uncommitted work never triggers a block. Without one (other agents) it
+    is the whole working tree and the commands are unknown.
+    """
+    import obey_engine
+
+    events, known, paths = [], False, None
     transcript = payload.get("transcript_path") or payload.get("transcriptPath")
-    if transcript and os.path.exists(transcript):
-        events = obey_engine.events_from_transcript(_read(transcript) or "", root)
+    if isinstance(transcript, str) and os.path.exists(transcript):
+        text = _read(transcript) or ""
+        if obey_engine.transcript_recognized(text):
+            events, known = obey_engine.events_from_transcript(text, root), True
+            paths = _agent_changes(events, root)
     final = payload.get("last_assistant_message") or payload.get("prompt_response") or ""
-    return {
+    run = {
         "events": events,
-        "diff": diff,
-        "base_files": base_files,
+        "diff": _working_tree_diff(root, paths),
+        "base_files": [p for p in _git(root, "ls-files", "-z").split("\0") if p],
         "commits": [],
         "pushed_refs": [],
         "final_message": final if isinstance(final, str) else "",
     }
+    return run, known
 
 
 def _log(entry):
@@ -233,24 +352,32 @@ def _log(entry):
         pass
 
 
-def _stop_count(payload):
-    key = str(payload.get("session_id") or payload.get("sessionId") or payload.get("conversation_id") or "default")
-    import tempfile
-
+def _stop_state(payload, root):
+    """The file that counts a session's consecutive blocked Stop events (in the temp dir)."""
+    key = str(payload.get("session_id") or payload.get("sessionId") or payload.get("conversation_id") or "")
+    if not key:
+        key = "default-" + hashlib.sha256(root.encode("utf-8", "replace")).hexdigest()[:12]
     safe = "".join(c for c in key if c.isalnum() or c in "-_")[:80]
-    path = os.path.join(tempfile.gettempdir(), "obey-stop-" + safe)
-    count = 0
+    return os.path.join(tempfile.gettempdir(), "obey-stop-" + safe)
+
+
+def _blocked_stops(path):
     try:
         with open(path) as fh:
-            count = int(fh.read().strip() or 0)
+            return int(fh.read().strip() or 0)
     except (OSError, ValueError):
-        pass
+        return 0
+
+
+def _set_blocked_stops(path, count):
     try:
-        with open(path, "w") as fh:
-            fh.write(str(count + 1))
+        if count:
+            with open(path, "w") as fh:
+                fh.write(str(count))
+        elif os.path.exists(path):
+            os.remove(path)
     except OSError:
         pass
-    return count
 
 
 def main(argv):
@@ -266,24 +393,35 @@ def main(argv):
 
         with open(os.path.join(HERE, "rules.json"), encoding="utf-8") as fh:
             rules = json.load(fh)["rules"]
-        root = _repo_root(
-            payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.environ.get("GEMINI_PROJECT_DIR")
-        )
+        root = _project_root()
+        cwd = _payload_cwd(payload, root)
         if event == "stop":
-            if _stop_count(payload) >= 3:
+            state = _stop_state(payload, root)
+            blocked = _blocked_stops(state)
+            if blocked >= MAX_STOP_BLOCKS:
+                _set_blocked_stops(state, 0)  # a fresh start for the next turn
                 return 0  # do not keep an agent in a loop; the run report still shows the violation
-            run = _working_tree_run(root, payload)
+            run, known = _stop_run(root, payload)
             for rule in rules:
-                if rule["checker"]["type"] not in obey_engine.STOP_TYPES:
-                    continue
+                kind = rule["checker"]["type"]
+                if kind not in obey_engine.STOP_TYPES or (kind == "command_required" and not known):
+                    continue  # without a transcript the agent's commands are unknown, so none can be required
                 verdict = obey_engine.check(rule, run)
-                if verdict["verdict"] == "violated":
-                    reason = obey_engine.reason(rule, verdict)
-                    _log({"agent": agent, "event": "stop", "decision": "block", "rule_id": rule["id"]})
-                    print(json.dumps(stop_output(agent, reason)))
-                    return 0
+                if verdict["verdict"] != "violated":
+                    continue
+                if kind == "path_required_with" and known:
+                    # The agent's changes lack the paired change; one the user made earlier may supply it.
+                    whole = obey_engine.check(rule, dict(run, diff=_working_tree_diff(root)))
+                    if whole["verdict"] != "violated":
+                        continue
+                reason = obey_engine.reason(rule, verdict)
+                _set_blocked_stops(state, blocked + 1)
+                _log({"agent": agent, "event": "stop", "decision": "block", "rule_id": rule["id"]})
+                print(json.dumps(stop_output(agent, reason)))
+                return 0
+            _set_blocked_stops(state, 0)  # this Stop passes
             return 0
-        for action in actions_from(agent, payload, root):
+        for action in actions_from(agent, payload, root, cwd):
             decision = obey_engine.evaluate_action(rules, action)
             if decision:
                 _log(

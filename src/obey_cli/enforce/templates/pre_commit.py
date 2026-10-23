@@ -8,14 +8,33 @@ with people. Install as git hooks:
     ln -s ../../.obey/pre-commit .git/hooks/commit-msg
 
 or through the pre-commit framework (see the obey README). With a commit-message file argument it checks the
-message; without one it checks the staged changes. Exit code 1 blocks the commit; internal errors allow it.
+message; without one it checks the staged changes. Exit code 1 blocks the commit. An internal error (the engine
+cannot be loaded, a crash) allows the commit and says so on stderr, so a bug here can never lock you out of git.
 """
 
 import os
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _find_root():
+    """The project root: git's top level when it holds obey's files, else where this script really lives.
+
+    Through the symlink install, __file__ is .git/hooks/pre-commit; its real path is <root>/.obey/pre-commit.
+    """
+    real = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    try:
+        out = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, timeout=10, check=False)
+        top = out.stdout.decode("utf-8", "replace").strip() if out.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        top = ""
+    for candidate in (top, real):
+        if candidate and os.path.isfile(os.path.join(candidate, ".obey", "hooks", "rules.json")):
+            return candidate
+    return real
+
+
+ROOT = _find_root()
 sys.path.insert(0, os.path.join(ROOT, ".obey", "hooks"))
 
 STAGED_TYPES = {

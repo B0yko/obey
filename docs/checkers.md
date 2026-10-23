@@ -37,7 +37,7 @@ All checkers live in one standard-library module, `src/obey_cli/enforce/engine/o
 | `content_required_added` | `regex`, `globs`, `first_lines` | a new matching file lacks the regex in its first lines | a new matching file was created |
 | `commit_message` | `regex` | a new commit's message does not match | a commit was made |
 | `no_commit` | — | a commit exists, or `git commit` ran | the diff is non-empty, a commit exists, or a git command ran |
-| `no_push` | — | refs reached the remote, or `git push` ran (not `--dry-run`) | the diff is non-empty, a commit exists, or a git command ran |
+| `no_push` | — | refs reached the remote, or `git push` ran (any options, even `--dry-run` or `--help`) | the diff is non-empty, a commit exists, or a git command ran |
 | `file_naming` | `globs`, `pattern` (full match on the file name) | a new or renamed matching file has a name that does not match | a matching file was created or renamed |
 | `final_message` | `required` or `forbidden` regex | the final message lacks the required pattern or contains the forbidden one | there is a final message |
 

@@ -7,10 +7,13 @@ hook blocks is exactly what `obey run` measures. https://github.com/B0yko/obey
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 import shlex
 from typing import Any, Dict, List, Optional, Tuple
 
+WORKDIR = "/srv/obey/work"  # where `obey run` puts the repository inside the sandbox
+DENY_MARK = "obey: this breaks the rule"  # how every refusal starts; the stop hook finds its own refusals by it
 STOP_TYPES = {"command_required", "path_required_with", "final_message", "content_required_added"}
 DEFAULT_MANIFESTS = [
     "**/package.json",
@@ -79,7 +82,11 @@ def glob_match(globs: List[str], path: str) -> bool:
 
 # --------------------------------------------------------------------------------------------- shell
 
-_SEPARATORS = ("&&", "||", ";", "|", "&", "\n")
+# Not followed (a command the engine cannot see is not blocked): `ssh host '...'`, `docker run image cmd`, code
+# that spawns processes inside `python -c` / `node -e` (only its file writes are read), `watch`, `flock`, `su -c`
+# and `script -c` wrappers, `bash <(...)` / `source <(...)`, `curl ... | sh`, aliases, shell functions, and a
+# command word that comes from a variable (`$CMD`).
+
 _ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _SIMPLE_WRAPPERS = {
     "sudo",
@@ -93,129 +100,460 @@ _SIMPLE_WRAPPERS = {
     "stdbuf",
     "caffeinate",
     "corepack",
+    "setsid",
 }
-_SHELLS = {
-    "bash",
-    "sh",
-    "zsh",
-    "dash",
-    "ksh",
-    "/bin/bash",
-    "/bin/sh",
-    "/usr/bin/bash",
-    "/usr/bin/sh",
-    "/bin/zsh",
-    "/usr/bin/env bash",
-    "fish",
-}
-_HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+_SHELL_NAMES = {"bash", "sh", "zsh", "dash", "ksh", "ash", "fish"}
+# `<<EOF`, `<<-'EOF'`, `<<"EOF"`, `<<\EOF`, but not the here-string `<<<`. Groups: single-quoted, double-quoted,
+# backslash, bare delimiter.
+_HEREDOC_RE = re.compile(r"""(?<!<)<<(?!<)-?[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|(\\?)([^\s;&|<>()'"\\]+))""")
+_REDIR_RE = re.compile(r"^(\d+|&)?(>>|>\||>&|>|<<<|<<-|<<|<&|<>|<)(.*)$", re.S)
+_RESERVED_RE = re.compile(r"^(?:(?:!|do|then|else|elif|if|while|until|\{)(?:\s+|$))+")
+_CLOSERS = {"}", "fi", "done", "esac", "then", "else", "do"}
+_CD_NAMES = {"cd", "pushd", "popd"}
+_PLAIN_RUN = re.compile(r"""[^\\'"`$<>()#;&|\n]+""")
+_WORD_RUN = re.compile(r"""[^\s\\'"`$<>]+""")
+_DQ_SPECIAL = re.compile(r"""["\\$`]""")
+_PAREN_SPECIAL = re.compile(r"""[()'"\\`<#]""")
+_SUBST_SPECIAL = re.compile(r"""['"\\`$<>]""")
+_ANSI_SPECIAL = re.compile(r"""[\\']""")
 
 
-def _split_top(cmd: str) -> List[str]:
-    """Split a command line on unquoted separators; heredoc bodies stay attached to their command."""
-    parts: List[str] = []
-    buf = ""
+class _Redir(str):
+    """A word that starts with an unquoted redirection operator: `>f`, `2>>f`, `&>`, `<<<`, `>|`."""
+
+    __slots__ = ()
+
+
+def _hd(m: "re.Match[str]") -> Tuple[str, bool]:
+    """(delimiter, quoted) of a heredoc operator matched by _HEREDOC_RE."""
+    if m.group(1) is not None:
+        return m.group(1), True
+    if m.group(2) is not None:
+        return m.group(2), True
+    return m.group(4), bool(m.group(3))
+
+
+def _terminator(delim: str) -> "re.Pattern[str]":
+    return re.compile(r"(?m)^[ \t]*" + re.escape(delim) + r"[ \t]*$")
+
+
+def _read_dq(s: str, i: int, depth: int = 0) -> Tuple[str, int, bool]:
+    """The double-quoted string at s[i]: (its text with escapes resolved, index after it, whether it was closed)."""
+    out: List[str] = []
+    n = len(s)
+    j = i + 1
+    while j < n:
+        m = _DQ_SPECIAL.search(s, j)
+        if m is None:
+            out.append(s[j:])
+            return "".join(out), n, False
+        k = m.start()
+        out.append(s[j:k])
+        c = s[k]
+        if c == '"':
+            return "".join(out), k + 1, True
+        if c == "\\":
+            nxt = s[k + 1 : k + 2]
+            if nxt and nxt in '"\\$`':
+                out.append(nxt)
+                j = k + 2
+            elif nxt == "\n":
+                j = k + 2
+            else:
+                out.append("\\")
+                j = k + 1
+        elif c == "$" and s.startswith("(", k + 1) and depth < 20:
+            e = _skip_paren(s, k + 1, depth + 1)
+            out.append(s[k:e])  # a command substitution stays as written
+            j = e
+        elif c == "`":
+            e = s.find("`", k + 1)
+            e = n if e == -1 else e + 1
+            out.append(s[k:e])
+            j = e
+        else:
+            out.append(c)
+            j = k + 1
+    return "".join(out), n, False
+
+
+def _skip_ansi(s: str, i: int) -> int:
+    """Index after the `$'...'` string at s[i]."""
+    n = len(s)
+    j = i + 2
+    while j < n:
+        m = _ANSI_SPECIAL.search(s, j)
+        if m is None:
+            return n
+        if s[m.start()] == "'":
+            return m.start() + 1
+        j = m.start() + 2
+    return n
+
+
+def _ansi_text(raw: str) -> str:
+    return re.sub(r"\\(.)", lambda m: {"n": "\n", "t": "\t", "r": "\r"}.get(m.group(1), m.group(1)), raw, flags=re.S)
+
+
+def _skip_paren(s: str, i: int, depth: int = 0) -> int:
+    """Index after the `)` that closes the `(` at s[i] (len(s) when it is never closed).
+
+    Quotes, backslashes, nested parentheses and heredoc bodies inside are skipped, so `)` in them does not count.
+    """
+    n = len(s)
+    level = 0
+    j = i
+    while j < n:
+        m = _PAREN_SPECIAL.search(s, j)
+        if m is None:
+            return n
+        j = m.start()
+        c = s[j]
+        if c == "(":
+            level += 1
+        elif c == ")":
+            level -= 1
+            if level == 0:
+                return j + 1
+        elif c == "'":
+            if j > 0 and s[j - 1] == "$":
+                j = _skip_ansi(s, j - 1)
+                continue
+            k = s.find("'", j + 1)
+            j = n if k == -1 else k
+        elif c == '"':
+            if depth >= 20:
+                return n
+            j = _read_dq(s, j, depth + 1)[1]
+            continue
+        elif c == "\\":
+            j += 1
+        elif c == "`":
+            k = s.find("`", j + 1)
+            j = n if k == -1 else k
+        elif c == "<":
+            hm = _HEREDOC_RE.match(s, j)
+            if hm:
+                nl = s.find("\n", hm.end())
+                term = _terminator(_hd(hm)[0]).search(s, nl + 1) if nl != -1 else None
+                j = term.end() if term else hm.end()
+                continue
+        elif c == "#" and (j == 0 or s[j - 1] in " \t\n"):
+            k = s.find("\n", j)
+            j = n if k == -1 else k
+            continue
+        j += 1
+    return n
+
+
+def _split_top(cmd: str) -> List[Tuple[str, str]]:
+    """Split a command line on unquoted separators: [(separator before the part, part)].
+
+    A heredoc body stays attached to its command, also when more commands follow on the line of the operator.
+    The parentheses of a subshell come back as the parts ("(", "") and (")", ""), so a caller can scope a `cd`;
+    command and process substitutions are not split, and a quoted string or `$(...)` is read as a unit in linear
+    time.
+    """
+    parts: List[Tuple[str, str]] = []
+    buf: List[str] = []
+    last = ""  # last character in buf ("" when it is empty)
+    sep_before = ""
+    pending: List[Tuple[int, str]] = []  # heredocs waiting for their body: (index of their part, delimiter)
     i = 0
-    quote = ""
-    depth = 0
     n = len(cmd)
+
+    def add(text: str) -> None:
+        nonlocal last
+        buf.append(text)
+        last = text[-1]
+
+    def flush() -> None:
+        nonlocal last
+        text = "".join(buf).strip()
+        if text:
+            parts.append((sep_before, text))
+        buf.clear()
+        last = ""
+
     while i < n:
         c = cmd[i]
-        if quote:
-            buf += c
-            if c == "\\" and quote == '"' and i + 1 < n:
-                buf += cmd[i + 1]
-                i += 2
-                continue
-            if c == quote:
-                quote = ""
-            i += 1
-            continue
-        if c == "\\" and i + 1 < n:
-            buf += c + cmd[i + 1]
+        m = _PLAIN_RUN.match(cmd, i)
+        if m:
+            add(m.group())
+            i = m.end()
+        elif c == "\\":
+            add(cmd[i : i + 2])
             i += 2
-            continue
-        if c in ("'", '"'):
-            quote = c
-            buf += c
-            i += 1
-            continue
-        if cmd.startswith("$(", i):
-            depth += 1
-            buf += "$("
-            i += 2
-            continue
-        if c == "(" and depth:
-            depth += 1
-        if c == ")" and depth:
-            depth -= 1
-            buf += c
-            i += 1
-            continue
-        if c == "#" and (not buf or buf[-1] in " \t\n") and not depth:
-            j = cmd.find("\n", i)
-            i = n if j == -1 else j
-            continue
-        if depth == 0:
-            heredoc = _HEREDOC_RE.match(cmd, i) if c == "<" else None
-            if heredoc:
-                # Keep "cmd <<EOF" and its body together; the body ends at a line equal to the delimiter.
-                delim = heredoc.group(2)
-                line_end = cmd.find("\n", heredoc.end())
-                rest_of_line = cmd[heredoc.end() : line_end if line_end != -1 else n]
-                buf += cmd[i : heredoc.end()] + rest_of_line
-                if line_end == -1:
-                    i = n
-                    continue
-                body_end = re.search(r"(?m)^\s*" + re.escape(delim) + r"\s*$", cmd[line_end + 1 :])
-                if body_end:
-                    body = cmd[line_end + 1 : line_end + 1 + body_end.start()]
-                    buf += "\n" + body + delim
-                    i = line_end + 1 + body_end.end()
-                else:
-                    buf += cmd[line_end:]
-                    i = n
+        elif c == "'":
+            j = cmd.find("'", i + 1)
+            j = n if j == -1 else j + 1
+            add(cmd[i:j])
+            i = j
+        elif c == '"':
+            j = _read_dq(cmd, i)[1]
+            add(cmd[i:j])
+            i = j
+        elif c == "`":
+            j = cmd.find("`", i + 1)
+            j = n if j == -1 else j + 1
+            add(cmd[i:j])
+            i = j
+        elif c == "$":
+            if cmd.startswith("$(", i):
+                j = _skip_paren(cmd, i + 1)
+            elif cmd.startswith("$'", i):
+                j = _skip_ansi(cmd, i)
+            else:
+                j = i + 1
+            add(cmd[i:j])
+            i = j
+        elif c == "#":
+            if last == "" or last in " \t\n":
+                j = cmd.find("\n", i)
+                i = n if j == -1 else j
+            else:
+                add(c)
+                i += 1
+        elif c in "<>":
+            if cmd.startswith("(", i + 1):
+                j = _skip_paren(cmd, i + 1)  # process substitution
+                add(cmd[i:j])
+                i = j
                 continue
-            sep = next((s for s in _SEPARATORS if cmd.startswith(s, i)), None)
-            if sep and not (sep == "&" and (cmd.startswith("&>", i) or (i > 0 and cmd[i - 1] in "<>"))):
-                if sep == "|" and cmd.startswith("|&", i):
-                    sep = "|&"
-                if buf.strip():
-                    parts.append(buf.strip())
-                buf = ""
-                i += len(sep)
+            hm = _HEREDOC_RE.match(cmd, i) if c == "<" else None
+            if hm:
+                add(cmd[i : hm.end()])
+                pending.append((len(parts), _hd(hm)[0]))
+                i = hm.end()
+            else:
+                add(c)
+                i += 1
+        elif c == "(" or c == ")":
+            flush()
+            parts.append((c, ""))
+            sep_before = ""
+            i += 1
+        else:  # ; & | newline
+            two = cmd[i : i + 2]
+            if c == "\n" and pending:
+                pos = i + 1
+                for idx, delim in pending:
+                    term = _terminator(delim).search(cmd, pos)
+                    if term:
+                        attach = "\n" + cmd[pos : term.start()] + delim
+                        pos = term.end() + 1
+                    else:
+                        attach = "\n" + cmd[pos:]
+                        pos = n + 1
+                    if idx < len(parts):
+                        sep, text = parts[idx]
+                        parts[idx] = (sep, text + attach)
+                    else:
+                        add(attach)
+                pending.clear()
+                flush()
+                sep_before = "\n"
+                i = min(pos, n)
                 continue
-        buf += c
-        i += 1
-    if buf.strip():
-        parts.append(buf.strip())
+            if two in ("&&", "||"):
+                sep = two
+            elif c == "&" and (two == "&>" or (i > 0 and cmd[i - 1] in "<>")):
+                add(c)  # &> file, >&2, <&3
+                i += 1
+                continue
+            elif c == "|" and i > 0 and cmd[i - 1] == ">":
+                add(c)  # >| file
+                i += 1
+                continue
+            elif two == "|&":
+                sep = two
+            else:
+                sep = c
+            flush()
+            sep_before = sep
+            i += len(sep)
+    flush()
     return parts
 
 
-def _tokens(segment: str) -> List[str]:
-    head = segment.split("\n", 1)[0] if _HEREDOC_RE.search(segment) else segment
+def _operator(s: str, i: int) -> str:
+    for op in (">>", ">|", ">&", "<<<", "<<-", "<<", "<&", "<>"):
+        if s.startswith(op, i):
+            return op
+    return s[i]
+
+
+def _lex(seg: str) -> Tuple[List[str], int, Optional[Tuple[str, bool]]]:
+    """Words of one simple command with quotes resolved as a POSIX shell does, in linear time.
+
+    Returns (words, where a heredoc body starts or -1, (delimiter, quoted) of that heredoc). A word that starts with
+    an unquoted redirection operator is a _Redir (also when the operator is glued to the word before it, as in
+    `echo hi>f`); `$(...)`, backticks and `<(...)` stay inside their word as written. Raises ValueError on an
+    unterminated quote.
+    """
+    toks: List[str] = []
+    pieces: List[str] = []
+    n = len(seg)
+    i = 0
+    in_word = redir = atoms = False
+    plain = ""  # the unquoted plain text of the word so far (an fd number or "&" in front of an operator)
+    body = -1
+    heredoc: Optional[Tuple[str, bool]] = None
+
+    def flush() -> None:
+        nonlocal in_word, redir, atoms, plain
+        if in_word:
+            word = "".join(pieces)
+            toks.append(_Redir(word) if redir else word)
+        pieces.clear()
+        in_word = redir = atoms = False
+        plain = ""
+
+    while i < n:
+        c = seg[i]
+        if c == "\n":
+            flush()
+            if heredoc is not None:
+                body = i + 1
+                break
+            i += 1
+        elif c.isspace():
+            flush()
+            i += 1
+        elif c == "\\":
+            if i + 1 >= n:
+                pieces.append("\\")
+                i += 1
+            elif seg[i + 1] == "\n":  # line continuation
+                i += 2
+                continue
+            else:
+                pieces.append(seg[i + 1])
+                i += 2
+            in_word = atoms = True
+        elif c == "'":
+            j = seg.find("'", i + 1)
+            if j == -1:
+                raise ValueError("unterminated quote")
+            pieces.append(seg[i + 1 : j])
+            in_word = atoms = True
+            i = j + 1
+        elif c == '"':
+            text, j, closed = _read_dq(seg, i)
+            if not closed:
+                raise ValueError("unterminated quote")
+            pieces.append(text)
+            in_word = atoms = True
+            i = j
+        elif c == "$" and seg.startswith(("$(", "$'"), i):
+            if seg[i + 1] == "(":
+                j = _skip_paren(seg, i + 1)
+                pieces.append(seg[i:j])
+            else:
+                j = _skip_ansi(seg, i)
+                pieces.append(_ansi_text(seg[i + 2 : j - 1]))
+            in_word = atoms = True
+            i = j
+        elif c == "`" and seg.find("`", i + 1) != -1:
+            j = seg.find("`", i + 1) + 1
+            pieces.append(seg[i:j])
+            in_word = atoms = True
+            i = j
+        elif c in "<>":
+            if seg.startswith("(", i + 1):
+                j = _skip_paren(seg, i + 1)
+                pieces.append(seg[i:j])
+                in_word = atoms = True
+                i = j
+                continue
+            if in_word and (redir or atoms or not (plain.isdigit() or plain == "&")):
+                flush()
+            hm = _HEREDOC_RE.match(seg, i) if c == "<" else None
+            if hm:
+                heredoc = _hd(hm)
+            op = _operator(seg, i)
+            pieces.append(op)
+            in_word = redir = True
+            i += len(op)
+        else:
+            m = _WORD_RUN.match(seg, i)
+            run = m.group() if m else c
+            pieces.append(run)
+            in_word = True
+            plain += run
+            i += len(run)
+    flush()
+    return toks, body, heredoc
+
+
+def _tokens(segment: str) -> Tuple[List[str], int, Optional[Tuple[str, bool]]]:
     try:
-        return shlex.split(head, posix=True)
+        return _lex(segment)
     except ValueError:
-        return head.split()
+        return segment.split(), -1, None
 
 
-def _heredoc_body(segment: str) -> Optional[str]:
-    m = _HEREDOC_RE.search(segment)
-    if not m or "\n" not in segment:
-        return None
-    body = segment.split("\n", 1)[1]
-    if body.endswith(m.group(2)):
-        body = body[: -len(m.group(2))]
-    return body
+def _split_redirs(tokens: List[str]) -> Tuple[List[str], List[Tuple[str, str, str]], List[str]]:
+    """(words without redirections, [(fd or "&", operator, target)], the redirection words as written)."""
+    clean: List[str] = []
+    redirs: List[Tuple[str, str, str]] = []
+    words: List[str] = []
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        m = _REDIR_RE.match(tok) if isinstance(tok, _Redir) else None
+        if m is None:
+            clean.append(tok)
+        else:
+            target = m.group(3)
+            words.append(tok)
+            if not target and i + 1 < len(tokens) and not isinstance(tokens[i + 1], _Redir):
+                i += 1
+                target = tokens[i]
+                words.append(target)
+            redirs.append((m.group(1) or "", m.group(2), target))
+        i += 1
+    return clean, redirs, words
 
 
-def _substitutions(segment: str) -> List[str]:
-    out = []
-    for m in re.finditer(r"\$\(((?:[^()]|\([^()]*\))*)\)", segment):
-        out.append(m.group(1))
-    for m in re.finditer(r"`([^`]+)`", segment):
-        out.append(m.group(1))
+def _substitutions(text: str, literal: bool = False) -> List[str]:
+    """Command text inside $(...), `...`, <(...) and >(...), except in single quotes (`literal`: a heredoc body)."""
+    out: List[str] = []
+    i = 0
+    n = len(text)
+    in_dq = False
+    while i < n:
+        m = _SUBST_SPECIAL.search(text, i)
+        if m is None:
+            break
+        k = m.start()
+        c = text[k]
+        if c == "\\":
+            i = k + 2
+        elif c == "'":
+            if in_dq or literal:
+                i = k + 1
+            else:
+                e = text.find("'", k + 1)
+                i = n if e == -1 else e + 1
+        elif c == '"':
+            if not literal:
+                in_dq = not in_dq
+            i = k + 1
+        elif c == "`":
+            e = text.find("`", k + 1)
+            if e == -1:
+                break
+            out.append(text[k + 1 : e])
+            i = e + 1
+        elif c == "$" and text.startswith("'", k + 1) and not in_dq and not literal:
+            i = _skip_ansi(text, k)
+        elif text.startswith("(", k + 1) and (c == "$" or (c in "<>" and not in_dq)):
+            e = _skip_paren(text, k + 1)
+            out.append(text[k + 2 : e - 1 if text[e - 1 : e] == ")" else e])
+            i = e
+        else:
+            i = k + 1
     return out
 
 
@@ -250,6 +588,32 @@ def _drop_opts(tokens: List[str], tool: str) -> List[str]:
     return tokens[i:]
 
 
+def _env_split(rest: List[str]) -> Optional[List[str]]:
+    """The command of `env -S 'cmd args'` (also -S'cmd' and --split-string=...); None without such an option."""
+    k = 0
+    while k < len(rest):
+        tok = rest[k]
+        if tok in ("-S", "--split-string") and k + 1 < len(rest):
+            value, after = rest[k + 1], rest[k + 2 :]
+        elif tok.startswith("--split-string="):
+            value, after = tok.split("=", 1)[1], rest[k + 1 :]
+        elif tok.startswith("-S") and len(tok) > 2:
+            value, after = tok[2:], rest[k + 1 :]
+        elif tok in ("-u", "-C"):
+            k += 2
+            continue
+        elif tok.startswith("-") or _ASSIGN_RE.match(tok):
+            k += 1
+            continue
+        else:
+            return None
+        try:
+            return [*shlex.split(value), *after]
+        except ValueError:
+            return None
+    return None
+
+
 def _unwrap(tokens: List[str]) -> List[List[str]]:
     """Forms of one simple command with wrappers removed: [[as written], [unwrapped], ...]."""
     forms = [tokens]
@@ -258,11 +622,24 @@ def _unwrap(tokens: List[str]) -> List[List[str]]:
         if not t:
             break
         head = t[0]
-        base = head.rsplit("/", 1)[-1]
+        if "/" in head and not _ASSIGN_RE.match(head):
+            bare = head.rsplit("/", 1)[-1]  # /usr/bin/npm, ./node_modules/.bin/eslint
+            if not bare or bare in (".", ".."):
+                break
+            t = [bare, *t[1:]]
+            forms.append(t)
+            continue
+        base = head
         if _ASSIGN_RE.match(head):
             t = t[1:]
         elif base == "env":
-            t = [x for x in _drop_opts(t[1:], "env") if not _ASSIGN_RE.match(x)] if len(t) > 1 else []
+            split = _env_split(t[1:])
+            if split is not None:
+                t = split
+            else:
+                t = [x for x in _drop_opts(t[1:], "env") if not _ASSIGN_RE.match(x)] if len(t) > 1 else []
+        elif base == "command" and len(t) > 1 and re.match(r"^-[a-zA-Z]*[vV]", t[1]):
+            break  # `command -v x` looks x up, it does not run it
         elif base in _SIMPLE_WRAPPERS:
             t = _drop_opts(t[1:], base)
         elif base == "timeout":
@@ -306,57 +683,218 @@ def _unwrap(tokens: List[str]) -> List[List[str]]:
 
 
 def _script_of(tokens: List[str]) -> Optional[str]:
-    """The script of `bash -c '...'`, `sh -lc "..."`, `bash <<EOF` (handled by the caller) etc."""
+    """The script of `bash -c '...'`, `sh -lc "..."` etc. (`bash <<EOF` and `sh <<< '...'` are handled by the caller)."""
     if not tokens:
         return None
-    base = tokens[0].rsplit("/", 1)[-1]
-    if base not in {"bash", "sh", "zsh", "dash", "ksh"}:
+    if tokens[0].rsplit("/", 1)[-1] not in _SHELL_NAMES:
         return None
     for i, tok in enumerate(tokens[1:], 1):
         if tok.startswith("-") and "c" in tok[1:] and not tok.startswith("--"):
-            return tokens[i + 1] if i + 1 < len(tokens) else None
+            rest = [t for t in tokens[i + 1 :] if t != "--"]
+            return rest[0] if rest else None
     return None
 
 
-def segments(command: str, _depth: int = 0) -> List[Dict[str, Any]]:
-    """Simple commands in a shell line, each with its argv and unwrapped views (normalised strings)."""
+def _stdin_shell(form: List[str]) -> bool:
+    """A shell that reads its script from stdin: `sh`, `bash -s`, but not `bash x.sh` or `bash -c ...`."""
+    clean = _split_redirs(form)[0]
+    if not clean or clean[0].rsplit("/", 1)[-1] not in _SHELL_NAMES or _script_of(clean) is not None:
+        return False
+    return all(a.startswith("-") for a in clean[1:])
+
+
+def _exec_commands(form: List[str]) -> List[List[str]]:
+    """Commands that `find ... -exec cmd ... ;` runs (also -execdir, -ok, -okdir)."""
+    if not form or form[0].rsplit("/", 1)[-1] != "find":
+        return []
+    out = []
+    i = 0
+    while i < len(form):
+        if form[i] in ("-exec", "-execdir", "-ok", "-okdir"):
+            j = i + 1
+            while j < len(form) and form[j] not in (";", "+"):
+                j += 1
+            if j > i + 1:
+                out.append(list(form[i + 1 : j]))
+            i = j
+        i += 1
+    return out
+
+
+def _git_dirs(form: List[str]) -> List[str]:
+    """The directories that `git -C <dir>` options move into, in order."""
+    if not form or form[0].rsplit("/", 1)[-1] != "git":
+        return []
+    out = []
+    i = 1
+    while i < len(form) and form[i].startswith("-"):
+        if form[i] == "-C" and i + 1 < len(form):
+            out.append(form[i + 1])
+            i += 2
+        elif form[i] in ("-c", "--git-dir", "--work-tree", "--namespace"):
+            i += 2
+        else:
+            i += 1
+    return out
+
+
+def _pipe_text(prev: Tuple[List[str], Optional[str]]) -> Optional[str]:
+    """The text a command writes into a pipe when it is only echo, printf or cat of literal text (for `... | sh`)."""
+    words, body = prev
+    clean, redirs, _ = _split_redirs(words)
+    if not clean:
+        return None
+    base = clean[0].rsplit("/", 1)[-1]
+    args = [a for a in clean[1:] if not a.startswith("-")]
+    if base == "echo":
+        return " ".join(args)
+    if base == "printf":
+        return " ".join(args[1:] if args and "%" in args[0] else args)
+    if base == "cat":
+        here = [t for _, op, t in redirs if op == "<<<"]
+        return here[0] if here else body
+    return None
+
+
+def _cd_join(cwd: str, target: str) -> str:
+    """The directory reached by `cd target` from `cwd`; "" is the directory the command line started in."""
+    if target.startswith("/"):
+        new = posixpath.normpath(target)
+    else:
+        new = posixpath.normpath(posixpath.join(cwd, target) if cwd else target)
+    if new == WORKDIR or new.startswith(WORKDIR + "/"):  # the sandbox's repository is where a run starts
+        new = new[len(WORKDIR) + 1 :]
+    return "" if new == "." else new
+
+
+def _next_cwd(cmd: str, args: List[str], cwd: str, dirs: List[str]) -> str:
+    """The directory after `cd`, `pushd` or `popd`; a target that is not a plain literal path resets to the start."""
+    if cmd == "popd":
+        return dirs.pop() if dirs else ""
+    i = 0
+    while i < len(args) and args[i].startswith("-") and args[i] != "-":
+        i += 1
+        if args[i - 1] == "--":
+            break
+    if i >= len(args):
+        return ""  # a bare `cd` goes home
+    target = args[i]
+    if target == "-" or target.startswith(("~", "+")) or any(ch in target for ch in "$`*?[{"):
+        return ""
+    if cmd == "pushd":
+        dirs.append(cwd)
+    return _cd_join(cwd, target)
+
+
+def _is_query(tokens: List[str]) -> bool:
+    """`which x`, `type x`, `command -v x`: they look a name up, they do not run it."""
+    if tokens[0] in ("type", "which", "whereis", "hash"):
+        return True
+    return tokens[0] == "command" and len(tokens) > 1 and bool(re.match(r"^-[a-zA-Z]*[vV]", tokens[1]))
+
+
+_SEG_CACHE: Dict[str, List[Dict[str, Any]]] = {}
+
+
+def segments(command: str, _depth: int = 0, _cwd: str = "") -> List[Dict[str, Any]]:
+    """Simple commands in a shell line, each with its argv and unwrapped views (normalised strings).
+
+    A segment also holds "cwd": the directory (relative to where the line started) it runs in after the `cd` and
+    `pushd` commands before it; a `cd` to something that is not a literal path counts as the start directory.
+    """
+    if _depth == 0 and not _cwd:
+        cached = _SEG_CACHE.get(command)
+        if cached is None:
+            cached = _segments(command, 0, "")
+            if len(_SEG_CACHE) >= 16:
+                _SEG_CACHE.clear()
+            _SEG_CACHE[command] = cached
+        return list(cached)
+    return _segments(command, _depth, _cwd)
+
+
+def _segments(command: str, depth: int, start: str) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
-    if _depth > 4:
+    if depth > 4:
         return out
-    for part in _split_top(command):
-        if part.startswith("cd ") or part == "cd":
+    cwd = start
+    scopes: List[str] = []  # directories to return to at the `)` of a subshell
+    dirs: List[str] = []  # the pushd stack
+    prev: Optional[Tuple[List[str], Optional[str]]] = None
+    for sep, part in _split_top(command):
+        if sep == "(":
+            scopes.append(cwd)
             continue
-        tokens = _tokens(part)
-        stripped = part
-        while stripped.startswith(("(", "{")):
-            stripped = stripped[1:].strip()
-        if stripped != part:
-            out += segments(stripped.rstrip(")}").strip(), _depth + 1)
+        if sep == ")":
+            if scopes:
+                cwd = scopes.pop()
             continue
+        part = _RESERVED_RE.sub("", part, count=1).strip()  # `then git push`, `! git push`, `do cmd`
+        if not part or part in _CLOSERS:
+            continue
+        tokens, body_start, heredoc = _tokens(part)
+        clean, redirs, redir_words = _split_redirs(tokens)
+        if tokens and isinstance(tokens[0], _Redir):
+            tokens = [*clean, *redir_words]  # `>f cmd` runs like `cmd >f`
+        here = cwd
+        if clean and clean[0] in _CD_NAMES:
+            cwd = _next_cwd(clean[0], clean[1:], cwd, dirs)
+        is_cd = bool(clean) and clean[0] == "cd"
+        body: Optional[str] = None
+        if body_start >= 0:
+            body = part[body_start:]
+            if heredoc and heredoc[0] and body.endswith(heredoc[0]):
+                body = body[: -len(heredoc[0])]
         forms = _unwrap(tokens) if tokens else []
-        views = []
+        views: List[str] = []
         for form in forms:
             text = " ".join(form)
             if text and text not in views:
                 views.append(text)
-        out.append(
-            {
-                "raw": part,
-                "argv": forms[-1] if forms else tokens,
-                "argv_raw": tokens,
-                "views": views,
-                "heredoc": _heredoc_body(part),
-            }
-        )
+        if tokens and _is_query(tokens):
+            views = [tokens[0]]
+        seg_cwd = here
+        for form in forms:
+            moved = _git_dirs(form)
+            if moved:
+                for d in moved:
+                    seg_cwd = _cd_join(seg_cwd, d)
+                break
+        if not is_cd:  # a plain `cd` is not reported as a command, but its substitutions still run
+            out.append(
+                {
+                    "raw": part,
+                    "argv": forms[-1] if forms else tokens,
+                    "argv_raw": tokens,
+                    "views": views,
+                    "heredoc": body,
+                    "cwd": seg_cwd,
+                }
+            )
+        scripts: List[str] = []
         for form in forms:
             script = _script_of(form)
             if script:
-                out += segments(script, _depth + 1)
-        body = _heredoc_body(part)
-        if body is not None and forms and forms[-1] and forms[-1][0].rsplit("/", 1)[-1] in {"bash", "sh", "zsh"}:
-            out += segments(body, _depth + 1)
-        for sub in _substitutions(part):
-            out += segments(sub, _depth + 1)
+                scripts.append(script)
+            elif form and form[0] == "eval" and len(form) > 1:
+                scripts.append(" ".join(form[1:]))
+            scripts += [shlex.join(inner) for inner in _exec_commands(form)]
+        if any(_stdin_shell(form) for form in forms):
+            scripts += [target for _, op, target in redirs if op == "<<<"]  # sh <<< 'git push'
+            if sep in ("|", "|&") and prev is not None:  # echo 'git push' | sh
+                piped = _pipe_text(prev)
+                if piped:
+                    scripts.append(piped)
+        if body is not None and any(f and f[0].rsplit("/", 1)[-1] in _SHELL_NAMES for f in forms):
+            scripts.append(body)
+        for script in dict.fromkeys(scripts):
+            out += _segments(script, depth + 1, seg_cwd)
+        subs = _substitutions(part if body_start < 0 else part[: body_start - 1])
+        if body is not None and heredoc and not heredoc[1]:
+            subs += _substitutions(body, literal=True)  # an unquoted heredoc delimiter lets the body expand
+        for sub in subs:
+            out += _segments(sub, depth + 1, seg_cwd)
+        prev = (tokens, body)
     return out
 
 
@@ -365,20 +903,25 @@ def matches_command(patterns: List[str], segment: Dict[str, Any]) -> bool:
 
 
 def _git_sub(segment: Dict[str, Any]) -> Tuple[str, List[str]]:
-    for v in reversed(segment["views"]):  # the most unwrapped form has git's global options removed
+    argv = segment["argv"]  # the most unwrapped form has git's global options removed
+    if argv and argv[0].rsplit("/", 1)[-1] == "git":
+        return (argv[1] if len(argv) > 1 else "", list(argv[2:]))
+    for v in reversed(segment["views"]):
         if v.startswith("git "):
             parts = v.split()
             return (parts[1] if len(parts) > 1 else "", parts[2:])
-    argv = segment["argv"]
-    if argv and argv[0].rsplit("/", 1)[-1] == "git":
-        return (argv[1] if len(argv) > 1 else "", argv[2:])
     return ("", [])
 
 
+def _prefix_of(arg: str, option: str, shortest: int = 4) -> bool:
+    """True when `arg` is `option` or an abbreviation of it git still accepts (`--mess`, `--message`)."""
+    return len(arg) >= shortest and option.startswith(arg)
+
+
 def is_git(segment: Dict[str, Any], sub: str) -> bool:
-    """True when the segment runs `git <sub>` (any options; an executed attempt counts)."""
-    name, _ = _git_sub(segment)
-    return name == sub
+    """True when the segment runs `git <sub>` with any options: an executed attempt counts, even `--dry-run` or
+    `--help` (the frozen checker contract: "never push" means never run `git push`)."""
+    return _git_sub(segment)[0] == sub
 
 
 # --------------------------------------------------------------------------------------------- writes through the shell
@@ -400,36 +943,40 @@ def _dest_args(args: List[str]) -> List[str]:
     return [a for a in args if not a.startswith("-")]
 
 
+def _join_cwd(cwd: str, p: str) -> str:
+    """A path as written in a command that ran in `cwd`, relative to the directory the command line started in."""
+    if p == "*":
+        return p
+    while p.startswith("./"):
+        p = p[2:]
+    if cwd and not p.startswith("/"):
+        p = cwd + "/" + p
+    if cwd or "//" in p or "/./" in p or ".." in p.split("/"):
+        p = posixpath.normpath(p)
+    return p
+
+
 def shell_write_targets(command: str) -> List[Dict[str, str]]:
-    """Files a command line writes, creates, deletes or renames: [{"path", "op"}], op in write|delete|rename|unknown."""
+    """Files a command line writes, creates, deletes or renames: [{"path", "op"}], op in write|delete|rename|unknown.
+
+    Redirections are read from the command text (`echo hi>f`, `cat a >> b`, `&> f`, `2> f`, `>| f`; not `grep '>' f`,
+    `2>&1` or `/dev/null`). Paths are relative to the directory the line started in: a literal `cd dir` or `pushd dir`
+    before the command is followed.
+    """
     found: List[Dict[str, str]] = []
+    cwd = ""
 
     def add(path: str, op: str = "write") -> None:
         p = path.strip().strip("'\"")
-        if p and p not in ("/dev/null", "/dev/stdout", "/dev/stderr", "-") and not p.startswith(("&", "/dev/fd")):
-            found.append({"path": p[2:] if p.startswith("./") else p, "op": op})
+        if p and p not in ("-", "{}") and not p.startswith(("&", "/dev/")):
+            found.append({"path": _join_cwd(cwd, p), "op": op})
 
     for seg in segments(command):
-        raw_tokens = seg["argv_raw"]
-        # Redirections anywhere in the segment.
-        for i, tok in enumerate(raw_tokens):
-            m = re.match(r"^(?:\d|&)?(>>?|>\|)(.*)$", tok)
-            if m:
-                target = m.group(2) or (raw_tokens[i + 1] if i + 1 < len(raw_tokens) else "")
+        cwd = seg.get("cwd", "")
+        clean, redirs, _ = _split_redirs(seg["argv"])
+        for _fd, op, target in redirs:
+            if op in (">", ">>", ">|") or (op == ">&" and not re.match(r"^(\d+|-)$", target)):
                 add(target)
-        argv = [t for t in seg["argv"] if not re.match(r"^(?:\d|&)?>", t)]
-        clean: List[str] = []
-        skip = False
-        for t in argv:
-            if skip:
-                skip = False
-                continue
-            if re.match(r"^(?:\d|&)?(>>?|>\||<)$", t):
-                skip = True
-                continue
-            if re.match(r"^(?:\d|&)?(>>?|>\||<)", t) or t.startswith("<<"):
-                continue
-            clean.append(t)
         if not clean:
             continue
         tool = clean[0].rsplit("/", 1)[-1]
@@ -931,9 +1478,8 @@ def _norm_path(p: str) -> str:
     p = p.strip().strip("'\"")
     while p.startswith("./"):
         p = p[2:]
-    for prefix in ("/srv/obey/work/",):
-        if p.startswith(prefix):
-            p = p[len(prefix) :]
+    if p.startswith(WORKDIR + "/"):
+        p = p[len(WORKDIR) + 1 :]
     return p
 
 
@@ -1191,7 +1737,7 @@ def reason(rule: Dict[str, Any], verdict: Dict[str, Any]) -> str:
     where = f" ({src.get('file')}:{(src.get('lines') or [''])[0]})" if src.get("file") else ""
     ev = (verdict.get("evidence") or [{}])[0]
     detail = f" Found: {ev.get('text')}." if ev.get("text") else ""
-    return f'obey: this breaks the rule "{rule.get("text", "")}"{where}.{detail}'
+    return f'{DENY_MARK} "{rule.get("text", "")}"{where}.{detail}'
 
 
 # --------------------------------------------------------------------------------------------- actions (hooks)
@@ -1262,22 +1808,81 @@ def _action_run(action: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+_CAT_HEREDOC_RE = re.compile(r"\$\(\s*cat\s+(?=<<)")
+
+
+def _resolve_message(text: str) -> str:
+    """`$(cat <<'EOF' ... EOF)` inside a commit message becomes the heredoc body, as the shell would run it."""
+    out: List[str] = []
+    pos = 0
+    while True:
+        m = _CAT_HEREDOC_RE.search(text, pos)
+        if m is None:
+            break
+        hm = _HEREDOC_RE.match(text, m.end())
+        nl = text.find("\n", hm.end()) if hm else -1
+        term = _terminator(_hd(hm)[0]).search(text, nl + 1) if hm and nl != -1 else None
+        close = text.find(")", term.end()) if term else -1
+        if term is None or close == -1:
+            out.append(text[pos : m.end()])
+            pos = m.end()
+            continue
+        out.append(text[pos : m.start()])
+        out.append(text[nl + 1 : term.start()].rstrip("\n"))
+        pos = close + 1
+    out.append(text[pos:])
+    return "".join(out)
+
+
 def _commit_messages(command: str) -> List[str]:
+    """The messages `git commit` commands in a command line would record (-m, -am, -sm, -mMSG, --message=MSG, -F -)."""
     out = []
     for seg in segments(command):
         if not is_git(seg, "commit"):
             continue
-        argv = seg["argv"]
-        msgs = []
-        for i, a in enumerate(argv):
-            if a in ("-m", "--message") and i + 1 < len(argv):
-                msgs.append(argv[i + 1])
-            elif a.startswith("--message="):
-                msgs.append(a.split("=", 1)[1])
-            elif a.startswith("-m") and len(a) > 2 and not a.startswith("--"):
-                msgs.append(a[2:])
+        args = _git_sub(seg)[1]
+        msgs: List[str] = []
+        i = 0
+        while i < len(args):
+            a = args[i]
+            i += 1
+            if a == "--":
+                break
+            if isinstance(a, _Redir):
+                continue
+            if a.startswith("--"):
+                name, eq, value = a[2:].partition("=")
+                if not (_prefix_of("--" + name, "--message", 5) or _prefix_of("--" + name, "--file", 5)):
+                    continue
+                given = bool(eq)
+                if not given and i < len(args):
+                    value = args[i]
+                    given = True
+                    i += 1
+                if _prefix_of("--" + name, "--message", 5):
+                    if given:
+                        msgs.append(value)
+                elif value == "-" and seg.get("heredoc") is not None:
+                    msgs.append(str(seg["heredoc"]).rstrip("\n"))
+            elif a.startswith("-") and len(a) > 1:
+                # A cluster of short options: the first that takes a value ends it (-am MSG, -sm MSG, -mMSG).
+                for j, ch in enumerate(a[1:], 1):
+                    if ch in "mFcCt":
+                        value = a[j + 1 :]
+                        given = bool(value)
+                        if not given and i < len(args):
+                            value = args[i]
+                            given = True
+                            i += 1
+                        if ch == "m" and given:
+                            msgs.append(value)
+                        elif ch == "F" and value == "-" and seg.get("heredoc") is not None:
+                            msgs.append(str(seg["heredoc"]).rstrip("\n"))
+                        break
+                    if ch in "Su":  # optional value glued to the option
+                        break
         if msgs:
-            out.append("\n\n".join(msgs))
+            out.append(_resolve_message("\n\n".join(msgs)))
     return out
 
 
@@ -1297,7 +1902,10 @@ def evaluate_action(rules: List[Dict[str, Any]], action: Dict[str, Any]) -> Opti
                 else:
                     verdict = check(checker, run)
             elif kind == "path_forbidden":
-                targets = [t for t in shell_write_targets(str(action.get("command") or "")) if t["path"] != "*"]
+                given = action.get("targets")  # a hook resolves them against the working directory and symlinks
+                if given is None:
+                    given = shell_write_targets(str(action.get("command") or ""))
+                targets = [t for t in given if t["path"] != "*"]
                 if targets:
                     existing = action.get("existing_paths")
                     shell_run = {
@@ -1327,6 +1935,19 @@ def evaluate_action(rules: List[Dict[str, Any]], action: Dict[str, Any]) -> Opti
 
 
 # --------------------------------------------------------------------------------------------- transcripts
+
+
+def transcript_recognized(text: str) -> bool:
+    """True when the text is a Claude Code transcript (JSON lines that hold `message.content`)."""
+    for line in text.splitlines():
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        msg = obj.get("message") if isinstance(obj, dict) else None
+        if isinstance(msg, dict) and isinstance(msg.get("content"), (list, str)):
+            return True
+    return False
 
 
 def events_from_transcript(text: str, root: str = "") -> List[Dict[str, Any]]:
@@ -1371,7 +1992,9 @@ def events_from_transcript(text: str, root: str = "") -> List[Dict[str, Any]]:
                         if isinstance(content, str)
                         else " ".join(str(c.get("text", "")) for c in content or [] if isinstance(c, dict))
                     )
-                    if "hook" in body.lower() and ("denied" in body.lower() or "blocked" in body.lower()):
+                    # Only our own hook's refusal counts as one (the agent shows it as an error result); a command whose
+                    # output merely mentions a hook being denied or blocked ran.
+                    if block.get("is_error") and DENY_MARK in body[:600]:
                         ev2["denied"] = True
                     m = re.search(r"Exit code (\d+)", body)
                     ev2["exit_code"] = (int(m.group(1)) if m else 1) if block.get("is_error") else 0

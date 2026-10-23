@@ -249,3 +249,206 @@ def test_latency_is_small(repo: Path) -> None:
     times = sorted(hook(repo, "claude", SHELL_PAYLOADS["claude"](repo, "pnpm add zod"))[3] for _ in range(20))
     p95 = times[int(len(times) * 0.95) - 1]
     assert p95 < 2000  # generous for shared CI runners; eval/hook_latency.py measures p95 on quiet hardware
+
+
+# --------------------------------------------------------------------------------------------- review fixes
+
+
+def test_existing_only_looks_at_the_disk_for_shell_writes(repo: Path) -> None:
+    def run(cmd: str, cwd: Path | None = None) -> str | None:
+        payload = SHELL_PAYLOADS["claude"](repo, cmd)
+        if cwd is not None:
+            payload["cwd"] = str(cwd)
+        return denied("claude", hook(repo, "claude", payload)[0])
+
+    assert run("echo 'select 1' > migrations/0009_new.sql") is None
+    assert run("mkdir -p migrations/new") is None
+    assert run("echo x > 0009_new.sql", repo / "migrations") is None
+    assert "migration" in (run("echo x >> migrations/0001_init.sql") or "")
+    assert "migration" in (run("cp src/a.ts migrations/0001_init.sql") or "")
+    assert "migration" in (run("echo x>>migrations/0001_init.sql") or "")
+    assert run("grep '>' migrations/0001_init.sql") is None
+    # A relative path is taken against the payload's cwd, and a cd moves it.
+    assert "migration" in (run("echo x >> 0001_init.sql", repo / "migrations") or "")
+    assert "migration" in (run("cd migrations && echo x >> 0001_init.sql") or "")
+    assert "migration" in (run("pushd migrations; sed -i s/a/b/ 0001_init.sql") or "")
+    assert run("cd src && echo x >> 0001_init.sql") is None
+
+
+def test_paths_through_symlinks_and_aliases_are_the_same_file(repo: Path, tmp_path: Path) -> None:
+    (repo / "src" / "link").symlink_to("../migrations")
+    alias = tmp_path / "alias"
+    alias.symlink_to(repo)
+    edit = EDIT_PAYLOADS["claude"]
+    for path, cwd in [
+        (repo / "src" / "link" / "0001_init.sql", repo),
+        (alias / "migrations" / "0001_init.sql", repo),
+        (repo / "migrations" / "0001_init.sql", alias),
+        (alias / "migrations" / "0001_init.sql", alias),
+    ]:
+        payload = {**edit(str(path), "id INTEGER", "id INTEGER, note TEXT"), "cwd": str(cwd)}
+        assert "migration" in (denied("claude", hook(repo, "claude", payload)[0]) or ""), (path, cwd)
+    shell = SHELL_PAYLOADS["claude"](repo, "echo x >> src/link/0001_init.sql")
+    assert "migration" in (denied("claude", hook(repo, "claude", shell)[0]) or "")
+    # A nested .git does not make the nested directory the project.
+    (repo / "src" / "vendor" / ".git").mkdir(parents=True)
+    payload = {**edit(str(repo / "migrations" / "0001_init.sql"), "a", "b"), "cwd": str(repo / "src" / "vendor")}
+    assert "migration" in (denied("claude", hook(repo, "claude", payload)[0]) or "")
+
+
+def test_codex_patch_paths_are_relative_to_the_payload_cwd(repo: Path) -> None:
+    patch = "*** Begin Patch\n*** Update File: 0001_init.sql\n@@\n-id INTEGER\n+id INTEGER, note TEXT\n*** End Patch\n"
+    payload = {"tool_name": "apply_patch", "tool_input": {"command": patch}, "cwd": str(repo / "migrations")}
+    assert "migration" in (denied("codex", hook(repo, "codex", payload)[0]) or "")
+    payload["cwd"] = str(repo / "src")
+    assert denied("codex", hook(repo, "codex", payload)[0]) is None
+
+
+def test_a_list_valued_command_is_read_as_a_command_line(repo: Path) -> None:
+    for argv in (["npm", "install", "zod"], ["bash", "-lc", "cd . && npm install zod"]):
+        payload = {"tool_name": "shell", "tool_input": {"command": argv}, "cwd": str(repo)}
+        assert "npm install zod" in (denied("codex", hook(repo, "codex", payload)[0]) or ""), argv
+    payload = {"tool_name": "shell", "tool_input": {"command": ["pnpm", "add", "zod"]}, "cwd": str(repo)}
+    assert denied("codex", hook(repo, "codex", payload)[0]) is None
+
+
+def _transcript(path: Path, *events: tuple[str, str]) -> None:
+    """A Claude Code transcript: ("edit", file) | ("bash", command, shown as run without error) | ("say", text)."""
+    lines: list[dict[str, Any]] = []
+    for i, (kind, value) in enumerate(events):
+        if kind == "say":
+            lines.append(
+                {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": value}]}}
+            )
+            continue
+        name, data = ("Edit", {"file_path": value}) if kind == "edit" else ("Bash", {"command": value})
+        lines.append({"message": {"content": [{"type": "tool_use", "id": f"t{i}", "name": name, "input": data}]}})
+        lines.append({"message": {"content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": "ok"}]}})
+    path.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+
+
+def _stop(repo: Path, transcript: Path | None, session: str, tmp: Path, agent: str = "claude") -> bool:
+    payload: dict[str, Any] = {"session_id": session, "cwd": str(repo)}
+    if transcript is not None:
+        payload["transcript_path"] = str(transcript)
+    out, err, code, _ = hook(repo, agent, payload, "stop", env={"TMPDIR": str(tmp)})
+    assert code == 0, err
+    return bool(out) and json.loads(out).get("decision") == "block"
+
+
+def test_stop_counts_only_blocked_stops_and_resets_when_one_passes(repo: Path, tmp_path: Path) -> None:
+    tmp = tmp_path / "tmp"
+    tmp.mkdir()
+    transcript = tmp_path / "t.jsonl"
+    edited = str(repo / "src" / "a.ts")
+    (repo / "src" / "a.ts").write_text("export const a = 2;\n")
+    # Passing stops (no edit yet) do not use up the allowance of a session...
+    _transcript(transcript, ("say", "hello"))
+    assert [_stop(repo, transcript, "s1", tmp) for _ in range(5)] == [False] * 5
+    # ...so an edit without tests is blocked three times, then let through, and the count starts over.
+    _transcript(transcript, ("edit", edited))
+    assert [_stop(repo, transcript, "s1", tmp) for _ in range(5)] == [True, True, True, False, True]
+    # A stop that passes resets the count.
+    assert _stop(repo, transcript, "s1", tmp) is True
+    _transcript(transcript, ("edit", edited), ("bash", "pnpm test"))
+    assert _stop(repo, transcript, "s1", tmp) is False
+    _transcript(transcript, ("edit", edited))
+    assert [_stop(repo, transcript, "s1", tmp) for _ in range(4)] == [True, True, True, False]
+    # Sessions are counted separately.
+    assert _stop(repo, transcript, "s2", tmp) is True
+
+
+def test_stop_ignores_the_users_own_uncommitted_work(repo: Path, tmp_path: Path) -> None:
+    tmp = tmp_path / "tmp"
+    tmp.mkdir()
+    transcript = tmp_path / "t.jsonl"
+    (repo / "src" / "a.ts").write_text("export const a = 'the user was here';\n")
+    (repo / "src" / "new.ts").write_text("export const b = 1;\n")
+    _transcript(transcript, ("say", "just answering a question"))
+    assert _stop(repo, transcript, "q1", tmp) is False
+    # The agent's own edit of another file does count, and only that file.
+    _transcript(transcript, ("edit", str(repo / "docs.md")))
+    assert _stop(repo, transcript, "q2", tmp) is True
+    # Whatever the agent edited in a file that the user had changed too is the agent's change.
+    _transcript(transcript, ("edit", str(repo / "src" / "a.ts")), ("bash", "pnpm test"))
+    assert _stop(repo, transcript, "q3", tmp) is False
+
+
+def test_stop_without_a_transcript_does_not_require_commands(repo: Path, tmp_path: Path) -> None:
+    tmp = tmp_path / "tmp"
+    tmp.mkdir()
+    (repo / "src" / "a.ts").write_text("export const a = 2;\n")
+    assert _stop(repo, None, "c1", tmp, agent="codex") is False
+    other = tmp_path / "rollout.jsonl"  # a transcript in some other format: commands are still unknown
+    other.write_text('{"type": "response_item", "payload": {}}\n')
+    assert _stop(repo, other, "c2", tmp, agent="codex") is False
+
+
+def test_stop_does_not_take_command_output_for_a_hook_denial(repo: Path, tmp_path: Path) -> None:
+    tmp = tmp_path / "tmp"
+    tmp.mkdir()
+    transcript = tmp_path / "t.jsonl"
+    lines: list[dict[str, Any]] = [
+        {
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "e", "name": "Edit", "input": {"file_path": str(repo / "src" / "a.ts")}}
+                ]
+            }
+        },
+        {"message": {"content": [{"type": "tool_use", "id": "b", "name": "Bash", "input": {"command": "pnpm test"}}]}},
+        {
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "b",
+                        "is_error": False,
+                        "content": "3 passed (hook blocked path, denied)",
+                    }
+                ]
+            }
+        },
+    ]
+    transcript.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+    (repo / "src" / "a.ts").write_text("export const a = 2;\n")
+    assert _stop(repo, transcript, "d1", tmp) is False
+    lines[2]["message"]["content"][0] = {
+        "type": "tool_result",
+        "tool_use_id": "b",
+        "is_error": True,
+        "content": 'PreToolUse:Bash hook error: obey: this breaks the rule "Use pnpm." (AGENTS.md:3).',
+    }
+    transcript.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+    assert _stop(repo, transcript, "d2", tmp) is True  # that run was refused, so the tests never ran
+
+
+def test_pre_commit_blocks_when_installed_as_a_symlink(repo: Path) -> None:
+    script = repo / ".obey" / "pre-commit"
+    script.chmod(0o755)
+    (repo / ".git" / "hooks" / "pre-commit").symlink_to("../../.obey/pre-commit")
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.com",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.com",
+    }
+
+    def commit() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "commit", "-qm", "change"], cwd=repo, env=env, capture_output=True, text=True)
+
+    (repo / "migrations" / "0001_init.sql").write_text("CREATE TABLE a (id INTEGER, note TEXT);\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    blocked = commit()
+    assert blocked.returncode != 0 and "obey: commit blocked" in blocked.stderr, blocked.stderr
+    assert "ModuleNotFoundError" not in blocked.stderr
+    subprocess.run(["git", "reset", "-q", "migrations"], cwd=repo, check=True)
+    (repo / "src" / "a.ts").write_text("export const a = 2;\n")
+    subprocess.run(["git", "add", "src/a.ts"], cwd=repo, check=True)
+    assert commit().returncode == 0
+    # Run directly, from the repository, it gives the same answer.
+    (repo / "migrations" / "0001_init.sql").write_text("CREATE TABLE a (id INTEGER, note TEXT, more TEXT);\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    direct = subprocess.run([PY, str(script)], cwd=repo, capture_output=True, text=True)
+    assert direct.returncode == 1 and "obey: commit blocked" in direct.stderr

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import time
+
 import pytest
 
 from obey_cli.enforce.engine import obey_engine as e
@@ -206,7 +209,7 @@ def test_transcript_events_mark_hook_denials() -> None:
             '{"message": {"content": [{"type": "tool_result", "tool_use_id": "b", "is_error": false, "content": "ok"}]}}',
             '{"message": {"content": [{"type": "tool_use", "id": "c", "name": "Bash", "input": {"command": "npm i"}}]}}',
             '{"message": {"content": [{"type": "tool_result", "tool_use_id": "c", "is_error": true, '
-            '"content": "PreToolUse:Bash hook error: denied"}]}}',
+            '"content": "PreToolUse:Bash hook error: obey: this breaks the rule \\"Use pnpm.\\" (AGENTS.md:3)."}]}}',
         ]
     )
     events = e.events_from_transcript(transcript, "/r")
@@ -214,3 +217,244 @@ def test_transcript_events_mark_hook_denials() -> None:
     assert events[1]["exit_code"] == 0 and events[2].get("denied") is True
     rule = {"type": "command_required", "params": {"pattern": "^make\\s+test\\b"}}
     assert e.check(rule, {"events": events, "diff": ""})["verdict"] == "obeyed"
+
+
+def test_output_that_mentions_a_hook_is_not_a_denial() -> None:
+    def line(payload: dict[str, object]) -> str:
+        return json.dumps({"message": {"content": [payload]}})
+
+    mention = "tests/test_hook.py: 2 passed (the hook blocked a path and the command was denied, as expected)"
+    transcript = "\n".join(
+        [
+            line({"type": "tool_use", "id": "a", "name": "Bash", "input": {"command": "pytest"}}),
+            line({"type": "tool_result", "tool_use_id": "a", "is_error": False, "content": mention}),
+            line({"type": "tool_use", "id": "b", "name": "Bash", "input": {"command": "pytest -x"}}),
+            line({"type": "tool_result", "tool_use_id": "b", "is_error": True, "content": "Exit code 1\n" + mention}),
+        ]
+    )
+    events = e.events_from_transcript(transcript)
+    assert [ev.get("denied") for ev in events] == [None, None]
+    assert e.transcript_recognized(transcript) and not e.transcript_recognized('{"type": "response_item"}\n')
+
+
+# --------------------------------------------------------------------------------------------- review fixes
+
+
+def _blocked(rules: list[dict[str, object]], command: str) -> bool:
+    return e.evaluate_action(rules, {"kind": "shell", "command": command}) is not None
+
+
+@pytest.mark.parametrize(
+    ("cmd", "messages"),
+    [
+        ("git commit -m \"$(cat <<'EOF'\nfeat: x\nEOF\n)\"", ["feat: x"]),
+        (
+            'git commit -m "$(cat <<\'EOF\'\nfix: a "quoted" word, don\'t\n\nBody (1).\nEOF\n)"',
+            ['fix: a "quoted" word, don\'t\n\nBody (1).'],
+        ),
+        ('git add . && git commit -m "$(cat <<EOF\nchore: y\nEOF\n)" && git status', ["chore: y"]),
+        ("git commit -am 'bad'", ["bad"]),
+        ("git commit -sm 'bad'", ["bad"]),
+        ("git commit -a -m'glued'", ["glued"]),
+        ("git commit -amglued", ["glued"]),
+        ("git commit --message=x", ["x"]),
+        ("git commit --message x", ["x"]),
+        ("git commit -m 'one' -m 'two' -m 'three'", ["one\n\ntwo\n\nthree"]),
+        ("git commit -F - <<'EOF'\nfeat: from stdin\nEOF", ["feat: from stdin"]),
+        ("git -C sub commit -qm 'chore: z'", ["chore: z"]),
+        ("git commit --amend --no-edit", []),
+        ("git commit -F msg.txt", []),
+        ("git commit --dry-run -m 'fix: nothing happens'", ["fix: nothing happens"]),
+        ("git log -m --oneline", []),
+    ],
+)
+def test_commit_messages(cmd: str, messages: list[str]) -> None:
+    assert e._commit_messages(cmd) == messages
+
+
+def test_commit_message_rule_reads_the_forms_agents_use() -> None:
+    heredoc = 'git commit -m "$(cat <<\'EOF\'\nfeat: add parser\n\nSome "details"\nEOF\n)"'
+    assert not _blocked(RULES, heredoc)
+    assert _blocked(RULES, heredoc.replace("feat: add", "add"))
+    assert _blocked(RULES, "git commit -am 'bad'") and _blocked(RULES, "git commit -sm 'bad'")
+    assert not _blocked(RULES, "git commit -am 'fix: ok'")
+
+
+@pytest.mark.parametrize(
+    ("cmd", "targets"),
+    [
+        ("grep '>' docs/secret.md", []),
+        ('grep ">" docs/secret.md', []),
+        ("echo '> not a file'", []),
+        ("echo hi>f", ["f"]),
+        ("cat a>b", ["b"]),
+        ('echo "x">f', ["f"]),
+        ("echo hi >> f", ["f"]),
+        ("echo hi>>f", ["f"]),
+        ("cmd &> f", ["f"]),
+        ("cmd 2>f", ["f"]),
+        ("cmd 2>>f", ["f"]),
+        ("echo hi >| f", ["f"]),
+        ("echo a>b>c", ["b", "c"]),
+        ("echo hi 2>&1", []),
+        ("echo hi >&2", []),
+        ("echo hi >/dev/null 2>&1", []),
+        ("echo hi &>/dev/null", []),
+        ("> f", ["f"]),
+        ("2>err.log echo hi", ["err.log"]),
+        ("cat <<EOF > out.txt\nbody\nEOF", ["out.txt"]),
+        ("cat < in.txt", []),
+        ("echo $(cat a > b)", ["b"]),
+    ],
+)
+def test_redirections_are_read_with_quote_awareness(cmd: str, targets: list[str]) -> None:
+    assert [t["path"] for t in e.shell_write_targets(cmd)] == targets
+
+
+@pytest.mark.parametrize(
+    ("cmd", "targets"),
+    [
+        ("cd secrets && echo x > key.txt", ["secrets/key.txt"]),
+        ("cd secrets; rm key.txt", ["secrets/key.txt"]),
+        ("pushd secrets && sed -i s/a/b/ key.txt", ["secrets/key.txt"]),
+        ("cd a && cd b && touch c", ["a/b/c"]),
+        ("cd a && cd .. && touch c", ["c"]),
+        ("cd .. && touch c", ["../c"]),
+        ("cd /srv/obey/work/secrets && touch k", ["secrets/k"]),
+        ("(cd secrets && ls); echo x > key.txt", ["key.txt"]),
+        ("pushd secrets; popd; touch k", ["k"]),
+        ("cd - && touch k", ["k"]),
+        ("cd $DIR && touch k", ["k"]),
+        ("cd secrets && bash -c 'touch k'", ["secrets/k"]),
+        ("git -C secrets rm k", ["secrets/k"]),
+        ("touch src/../secrets/k", ["secrets/k"]),
+    ],
+)
+def test_cd_moves_later_relative_targets(cmd: str, targets: list[str]) -> None:
+    assert [t["path"] for t in e.shell_write_targets(cmd)] == targets
+
+
+NO_PUSH = [{"id": "np", "text": "Never push.", "checker": {"type": "no_push", "params": {}}}]
+NO_NPM = [
+    {"id": "nonpm", "text": "No npm.", "checker": {"type": "command_forbidden", "params": {"patterns": ["^npm\\b"]}}}
+]
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "eval 'git push'",
+        "eval git push origin main",
+        "(cd sub && git push)",
+        "(git push)",
+        "{ git push; }",
+        "for r in a b; do git push $r; done",
+        "while true; do git push; done",
+        "if true; then git push; fi",
+        "if false; then true; else git push; fi",
+        "if git push; then true; fi",
+        "! git push",
+        "bash -c 'git push'",
+        "bash -lc 'cd x && git push'",
+        "bash --login -c 'git push'",
+        "fish -c 'git push'",
+        "env bash -c 'git push'",
+        "sudo -u root sh -c 'git push'",
+        "sh <<< 'git push'",
+        'bash <<< "git push"',
+        "echo 'git push' | sh",
+        "echo git push | bash",
+        "printf '%s\\n' 'git push' | sh",
+        "bash <<EOF\ngit push\nEOF",
+        "cat <<< foo && git push",
+        "tr a-z A-Z <<< hi; git push",
+        "cat <<EOF && git push\nbody\nEOF",
+        "cat <<EOF > /dev/null; git push\nbody\nEOF",
+        "/usr/bin/git push",
+        "find . -maxdepth 0 -exec git push \\;",
+        "find . -name x -execdir git push {} +",
+        "echo x | xargs -I{} git push",
+        "xargs git push < list",
+        "env -S 'git push'",
+        "env -i -S 'git push origin'",
+        "setsid git push",
+        "git -C . push",
+        "echo $(git push)",
+        "cd $(git push)",
+    ],
+)
+def test_no_push_sees_the_command_in_wrappers_and_blocks(cmd: str) -> None:
+    assert _blocked(NO_PUSH, cmd)
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "echo 'git push'",
+        "echo git push",
+        "cat <<< 'git push'",
+        "cat <<'EOF'\ngit push\nEOF",
+        "grep -rn 'git push' docs/",
+        "git stash push",
+        "echo '$(git push)'",
+        "git commit -m 'do not git push'",
+    ],
+)
+def test_no_push_leaves_text_alone(cmd: str) -> None:
+    assert not _blocked(NO_PUSH, cmd)
+
+
+@pytest.mark.parametrize(
+    ("cmd", "blocked"),
+    [
+        ("npm install", True),
+        ("/usr/bin/npm install x", True),
+        ("./node_modules/.bin/npm install", True),
+        ("/opt/homebrew/bin/npm ci", True),
+        ("for d in a b; do npm install; done", True),
+        ("(cd web && npm install)", True),
+        ("eval 'npm install'", True),
+        ("find . -name package.json -exec npm install \\;", True),
+        ("command -v npm", False),
+        ("command -V npm >/dev/null", False),
+        ("type npm", False),
+        ("which npm", False),
+        ("echo npm", False),
+    ],
+)
+def test_anchored_patterns_see_through_paths_and_ignore_lookups(cmd: str, blocked: bool) -> None:
+    assert _blocked(NO_NPM, cmd) is blocked
+
+
+@pytest.mark.parametrize(
+    "cmd", ["git push --dry-run", "git push -n origin main", "git push --help", "git push origin -h"]
+)
+def test_any_executed_git_push_counts_even_a_no_op(cmd: str) -> None:
+    # The frozen contract (and the held-out labels np-push-dry-run, np-push-help): never push = never run git push.
+    assert _blocked(NO_PUSH, cmd)
+
+
+def test_git_commit_attempts_count_and_text_does_not() -> None:
+    no_commit = [{"id": "nc", "text": "No commits.", "checker": {"type": "no_commit", "params": {}}}]
+    for cmd in (
+        "git commit -m x",
+        "git commit -n -m x",
+        "git commit --amend",
+        "git commit -am x",
+        "git commit --dry-run",
+    ):
+        assert _blocked(no_commit, cmd), cmd
+    for cmd in ("echo git commit", "git log --grep commit"):
+        assert not _blocked(no_commit, cmd), cmd
+
+
+def test_a_megabyte_argument_is_evaluated_quickly() -> None:
+    rules = [*RULES, *NO_NPM]
+    for cmd in (
+        'git commit -m "feat: ' + "a" * 1_000_000 + '"',
+        "echo '" + "a b " * 250_000 + "'",
+        "echo " + "word " * 200_000,
+    ):
+        started = time.perf_counter()
+        e.evaluate_action(rules, {"kind": "shell", "command": cmd})
+        assert time.perf_counter() - started < 1.0
