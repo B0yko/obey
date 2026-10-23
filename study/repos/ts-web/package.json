@@ -1,0 +1,26 @@
+{
+  "name": "shiftwise",
+  "version": "0.2.0",
+  "private": true,
+  "description": "A small shift scheduler for small teams: weekly rota table, conflict and hours checks.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p .",
+    "gen:types": "node scripts/gen-types.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  }
+}

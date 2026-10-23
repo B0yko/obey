@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Shiftwise team API
+  version: 1.0.0
+paths:
+  /people:
+    get:
+      operationId: listPeople
+      summary: List everyone on the team
+      responses:
+        '200':
+          description: The team members
+  /shifts:
+    get:
+      operationId: listShifts
+      summary: List shifts that start between the from and to query parameters
+      responses:
+        '200':
+          description: The matching shifts
+    post:
+      operationId: createShift
+      summary: Create a shift
+      responses:
+        '201':
+          description: The created shift
+components:
+  schemas:
+    Person:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [barista, baker, cashier, manager]
+        maxWeeklyHours:
+          type: integer
+    Shift:
+      type: object
+      required: [id, personId, start, end]
+      properties:
+        id:
+          type: string
+        personId:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        location:
+          type: string
+    NewShift:
+      type: object
+      required: [personId, start, end]
+      properties:
+        personId:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        location:
+          type: string
+    PersonList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+    ShiftList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Shift'

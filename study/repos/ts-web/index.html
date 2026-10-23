@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shiftwise</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; color: #1d2330; }
+      table.week { border-collapse: collapse; width: 100%; }
+      table.week th, table.week td { border: 1px solid #d5d9e2; padding: 0.4rem 0.6rem; vertical-align: top; text-align: left; }
+      table.week thead th { background: #f2f4f8; }
+      .shift { display: inline-block; font-variant-numeric: tabular-nums; }
+      .total { text-align: right; }
+    </style>
+  </head>
+  <body>
+    <h1>This week</h1>
+    <div id="app" data-api-base="/api">Loading the schedule...</div>
+    <script type="module" src="./dist/main.js"></script>
+  </body>
+</html>
