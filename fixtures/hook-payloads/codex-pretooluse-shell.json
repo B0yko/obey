@@ -1,0 +1,21 @@
+[
+  {
+    "argv": [
+      "codex"
+    ],
+    "payload": {
+      "session_id": "01a16a9c-668b-7560-9695-3e8e17754c67",
+      "turn_id": "01a16a9c-6693-7211-a643-2c5ff6aff0fb",
+      "transcript_path": "/home/agent/.obey-codex/sessions/2026/10/23/rollout-2026-10-23T21-13-17-01a16a9c-668b-7560-9695-3e8e17754c67.jsonl",
+      "cwd": "/srv/obey/work",
+      "hook_event_name": "PreToolUse",
+      "model": "openai/gpt-6-luna",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "git status"
+      },
+      "tool_use_id": "exec-f5a71ccc-19c7-4ab9-ac40-3376b7d6f51a"
+    }
+  }
+]

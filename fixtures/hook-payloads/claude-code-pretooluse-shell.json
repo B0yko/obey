@@ -1,0 +1,24 @@
+[
+  {
+    "argv": [
+      "claude"
+    ],
+    "payload": {
+      "session_id": "5ee516bc-c850-41cb-bbf8-bb38de8331da",
+      "transcript_path": "/home/agent/.obey-claude/projects/-srv-obey-work/5ee516bc-c850-41cb-bbf8-bb38de8331da.jsonl",
+      "cwd": "/srv/obey/work",
+      "prompt_id": "afc7f6fa-a638-4c94-8631-e86f114c4cd2",
+      "permission_mode": "bypassPermissions",
+      "effort": {
+        "level": "high"
+      },
+      "hook_event_name": "PreToolUse",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "git status",
+        "description": "Show working tree status"
+      },
+      "tool_use_id": "toolu_01KZN5uV6suJ62Cz78UX4ZMc"
+    }
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "argv": [
+      "copilot"
+    ],
+    "payload": {
+      "sessionId": "f755b48a-7e38-4bfd-9029-1451bd927e1b",
+      "timestamp": 1792790031811,
+      "cwd": "/srv/obey/work",
+      "toolName": "bash",
+      "toolArgs": {
+        "command": "git --no-pager status",
+        "description": "Show git status"
+      }
+    }
+  }
+]

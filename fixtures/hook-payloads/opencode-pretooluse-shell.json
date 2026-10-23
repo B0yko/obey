@@ -1,0 +1,14 @@
+[
+  {
+    "argv": [
+      "opencode"
+    ],
+    "payload": {
+      "tool": "bash",
+      "args": {
+        "command": "git status",
+        "workdir": "/srv/obey/work"
+      }
+    }
+  }
+]
