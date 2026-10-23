@@ -60,15 +60,23 @@ def test_egress_is_allow_listed_and_key_stays_outside(batch: tuple[DockerSandbox
     root = tmp_path / "probe"
     (root / "work").mkdir(parents=True)
     (root / "work" / "README.md").write_text("x\n")
-    raw = box.run(b, root, Invocation(argv=["sh", "-c", SCRIPT], timeout_s=120), tmp_path / "out", "isolation")
-    out = (raw.out_dir / ".obey-out" / "stream.jsonl").read_text()
+    raw = box.run(
+        b,
+        root,
+        Invocation(argv=["sh", "-c", SCRIPT], timeout_s=120),
+        tmp_path / "out",
+        "isolation",
+        copy_back_work=True,
+    )
+    assert raw.root is not None
+    out = (raw.out_dir / "stream.jsonl").read_text()
     lines = dict(line.split(": ", 1) for line in out.strip().splitlines())
     assert lines["allowed"] == "200"
     assert lines["denied"].startswith(("URLError", "HTTPError", "ProxyError", "OSError")), lines["denied"]
     assert lines["gateway"] == "200"
     assert lines["direct"].startswith("blocked")
     assert lines["key"] == "absent absent"
-    assert (raw.out_dir / "work" / "README.md").read_text() == "x\n"
+    assert (raw.root / "work" / "README.md").read_text() == "x\n"
     events = box.egress_log(b)
     assert {"event": "allowed", "host": "pypi.org"}.items() <= next(
         e for e in events if e["event"] == "allowed"

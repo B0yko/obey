@@ -22,9 +22,11 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 AGENT_UID = 1000
 AGENT_HOME = "/home/agent"
+WORK_ROOT = "/srv/obey"  # holds work/ (the repository copy) and .remote/ (a bare origin)
 GATEWAY_HOST = "obey-gw"
 GATEWAY_PORT = 8787
 PROXY_PORT = 3128
@@ -47,7 +49,8 @@ class Invocation:
 
 @dataclass
 class RawRun:
-    out_dir: Path  # holds work/, .remote/, .obey-out/stream.jsonl, stderr.log, exit_code
+    root: Path | None  # the copied-back WORK_ROOT (work/ and .remote/) when requested
+    out_dir: Path  # $HOME/.obey-out: stream.jsonl, stderr.log, exit_code, end-state.json, hook logs
     exit_code: int | None
     timed_out: bool
     duration_s: float
@@ -208,8 +211,18 @@ class DockerSandbox:
         logs = _docker("logs", batch.sidecar, check=False).stderr.decode("utf-8", "replace")[-800:]
         raise SandboxError(f"sidecar did not become ready: {logs}")
 
-    def run(self, batch: Batch, root: Path, inv: Invocation, out_dir: Path, run_id: str) -> RawRun:
-        """Copy `root` (work/ and .remote/) into the container's home, run the invocation, copy everything back."""
+    def run(
+        self,
+        batch: Batch,
+        root: Path,
+        inv: Invocation,
+        out_dir: Path,
+        run_id: str,
+        *,
+        base_sha: str | None = None,
+        copy_back_work: bool = False,
+    ) -> RawRun:
+        """Copy `root` (work/ and .remote/) into the container, run the invocation, copy everything back."""
         name = f"obey-run-{run_id[:40]}-{uuid.uuid4().hex[:6]}"
         proxy = f"http://{GATEWAY_HOST}:{PROXY_PORT}"
         env = {
@@ -222,6 +235,8 @@ class DockerSandbox:
             "no_proxy": f"{GATEWAY_HOST},localhost,127.0.0.1",
             **inv.env,
         }
+        if base_sha:
+            env["OBEY_BASE_SHA"] = base_sha
         env_args: list[str] = []
         for k, v in env.items():
             env_args += ["-e", f"{k}={v}"]
@@ -250,8 +265,11 @@ class DockerSandbox:
             entries: dict[str, Path | str | bytes] = {"work": root / "work"}
             if (root / ".remote").exists():
                 entries[".remote"] = root / ".remote"
-            entries.update(inv.home_files)
-            _docker("cp", "-a", "-", f"{name}:{AGENT_HOME}", input_bytes=tar_tree(entries), timeout=300)
+            _docker("cp", "-a", "-", f"{name}:{WORK_ROOT}", input_bytes=tar_tree(entries), timeout=300)
+            home: dict[str, Path | str | bytes] = {".obey-out/.keep": "", **inv.home_files}
+            if base_sha:
+                home[".obey-tools/workspace.py"] = (Path(__file__).parent / "workspace.py").read_bytes()
+            _docker("cp", "-a", "-", f"{name}:{AGENT_HOME}", input_bytes=tar_tree(home), timeout=60)
             started = time.monotonic()
             timed_out = False
             try:
@@ -261,24 +279,30 @@ class DockerSandbox:
                 _docker("kill", name, check=False)
             duration = time.monotonic() - started
             out_dir.mkdir(parents=True, exist_ok=True)
-            archive = _docker("cp", f"{name}:{AGENT_HOME}", "-", timeout=300).stdout
-            _extract(archive, out_dir)
-            home = out_dir / "agent"
-            code_file = home / ".obey-out" / "exit_code"
+            if copy_back_work:
+                _extract(_docker("cp", f"{name}:{WORK_ROOT}", "-", timeout=300).stdout, out_dir)
+            _extract(_docker("cp", f"{name}:{AGENT_HOME}/.obey-out", "-", timeout=120).stdout, out_dir)
+            code_file = out_dir / ".obey-out" / "exit_code"
             exit_code = int(code_file.read_text().strip()) if code_file.exists() else None
             if exit_code == 124:
                 timed_out = True
-            return RawRun(out_dir=home, exit_code=exit_code, timed_out=timed_out, duration_s=duration)
+            return RawRun(
+                root=out_dir / "obey" if copy_back_work else None,
+                out_dir=out_dir / ".obey-out",
+                exit_code=exit_code,
+                timed_out=timed_out,
+                duration_s=duration,
+            )
         finally:
             _docker("rm", "-f", name, check=False)
 
-    def ledger_lines(self, batch: Batch) -> list[dict[str, object]]:
+    def ledger_lines(self, batch: Batch) -> list[dict[str, Any]]:
         proc = _docker(
             "exec", batch.sidecar, "sh", "-c", f"cat {AGENT_HOME}/ledger.jsonl 2>/dev/null || true", check=False
         )
         return [json.loads(line) for line in proc.stdout.decode().splitlines() if line.strip()]
 
-    def egress_log(self, batch: Batch) -> list[dict[str, object]]:
+    def egress_log(self, batch: Batch) -> list[dict[str, Any]]:
         proc = _docker(
             "exec", batch.sidecar, "sh", "-c", f"cat {AGENT_HOME}/egress.jsonl 2>/dev/null || true", check=False
         )
@@ -289,6 +313,14 @@ class DockerSandbox:
         _docker("network", "rm", batch.network, check=False)
 
 
+def _safe_member(member: tarfile.TarInfo, dest: str) -> tarfile.TarInfo | None:
+    # Agents create virtualenvs and node_modules with absolute symlinks; skip anything the data filter rejects.
+    try:
+        return tarfile.data_filter(member, dest)
+    except tarfile.FilterError:
+        return None
+
+
 def _extract(archive: bytes, dest: Path) -> None:
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r") as tar:
-        tar.extractall(dest, filter="data")
+        tar.extractall(dest, filter=_safe_member)  # noqa: S202 - members pass tarfile's data filter

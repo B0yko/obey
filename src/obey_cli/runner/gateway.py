@@ -27,8 +27,9 @@ from urllib.parse import urlsplit
 UPSTREAMS = {
     "anthropic": "https://openrouter.ai/api",
     "openai": "https://openrouter.ai/api/v1",
+    "gemini": "https://generativelanguage.googleapis.com",
 }
-_PATH_RE = re.compile(r"^/r/([A-Za-z0-9._-]{1,80})/(anthropic|openai)(/.*)?$")
+_PATH_RE = re.compile(r"^/r/([A-Za-z0-9._-]{1,80})/(anthropic|openai|gemini)(/.*)?$")
 _HOP_HEADERS = {
     "connection",
     "keep-alive",
@@ -140,6 +141,17 @@ class UsageMeter:
             body = body["message"]
         if body.get("type") == "response.completed" and isinstance(body.get("response"), dict):
             body = body["response"]
+        meta = body.get("usageMetadata")
+        if isinstance(meta, dict):  # Gemini API
+            self.usage["input_tokens"] = max(self.usage["input_tokens"], int(meta.get("promptTokenCount") or 0))
+            self.usage["output_tokens"] = max(
+                self.usage["output_tokens"],
+                int(meta.get("candidatesTokenCount") or 0) + int(meta.get("thoughtsTokenCount") or 0),
+            )
+            self.usage["cache_read_tokens"] = max(
+                self.usage["cache_read_tokens"], int(meta.get("cachedContentTokenCount") or 0)
+            )
+            return
         usage = body.get("usage")
         if not isinstance(usage, dict):
             return
@@ -257,7 +269,13 @@ class Handler(BaseHTTPRequestHandler):
         base = urlsplit(self.config.upstreams[api])
         path = base.path.rstrip("/") + rest + (f"?{query}" if query else "")
         headers = {k: v for k, v in self.headers.items() if k.lower() not in _HOP_HEADERS}
-        headers["Authorization"] = f"Bearer {self.config.key}"
+        if api == "gemini":
+            headers["x-goog-api-key"] = self.config.key
+            if "key=" in query:
+                query = "&".join(q for q in query.split("&") if not q.startswith("key="))
+                path = base.path.rstrip("/") + rest + (f"?{query}" if query else "")
+        else:
+            headers["Authorization"] = f"Bearer {self.config.key}"
         headers["Content-Length"] = str(len(body))
         headers["Accept-Encoding"] = "identity"
         conn_cls = http.client.HTTPSConnection if base.scheme == "https" else http.client.HTTPConnection

@@ -151,7 +151,37 @@ def collect_end_state(work: Path, base_sha: str, remote: Path | None = None) -> 
     return EndState(diff=diff, commits=commits, pushed_refs=pushed, diff_truncated=truncated)
 
 
+def _main(argv: list[str]) -> int:
+    # In-container use: python3 workspace.py collect <work> <base_sha> <remote> <out.json>
+    import json
+    import sys
+
+    if len(argv) != 6 or argv[1] != "collect":
+        print("usage: workspace.py collect <work> <base_sha> <remote> <out.json>", file=sys.stderr)
+        return 2
+    _, _, work, base, remote, out = argv
+    state = collect_end_state(Path(work), base, Path(remote))
+    Path(out).write_text(
+        json.dumps(
+            {
+                "diff": state.diff,
+                "commits": state.commits,
+                "pushed_refs": state.pushed_refs,
+                "diff_truncated": state.diff_truncated,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return 0
+
+
 def remove_lines(text: str, start: int, end: int) -> str:
     """Drop 1-based lines start..end (inclusive), e.g. to build the no-rule baseline of an instruction file."""
     lines = text.splitlines(keepends=True)
     return "".join(lines[: start - 1] + lines[end:])
+
+
+if __name__ == "__main__":
+    import sys
+
+    raise SystemExit(_main(sys.argv))
