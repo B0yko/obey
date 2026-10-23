@@ -352,3 +352,87 @@ def llm_pass(
                 + "\n"
             )
     return len(rows)
+
+
+def summarise(features: Path, llm: Path | None = None, sample: Path | None = None) -> dict[str, Any]:
+    """Aggregate the survey: rules per file, checkable and enforceable shares, rule types, existing enforcement."""
+    import statistics
+
+    rows = [json.loads(line) for line in features.read_text(encoding="utf-8").splitlines() if line.strip()]
+    ok = [r for r in rows if r.get("fetched")]
+    rules = sorted(r["rules"] for r in ok)
+    total = sum(rules)
+    checkable = sum(r["checkable"] for r in ok)
+    pre_tool = sum(r["pre_tool_enforceable"] for r in ok)
+    by_type_rules: dict[str, int] = {}
+    by_type_repos: dict[str, int] = {}
+    for r in ok:
+        for t, n in r["by_type"].items():
+            by_type_rules[t] = by_type_rules.get(t, 0) + n
+            by_type_repos[t] = by_type_repos.get(t, 0) + 1
+    out: dict[str, Any] = {
+        "repositories": len(rows),
+        "fetched": len(ok),
+        "rules_total": total,
+        "rules_per_file": {
+            "median": statistics.median(rules) if rules else 0,
+            "mean": statistics.mean(rules) if rules else 0,
+            "p90": rules[int(len(rules) * 0.9)] if rules else 0,
+            "max": rules[-1] if rules else 0,
+        },
+        "files_with_no_rules": sum(1 for r in ok if r["rules"] == 0),
+        "checkable_share": checkable / total if total else 0,
+        "pre_tool_enforceable_share": pre_tool / total if total else 0,
+        "stop_or_commit_only_share": (checkable - pre_tool) / total if total else 0,
+        "types": [
+            {"type": t, "rules": by_type_rules[t], "repositories": by_type_repos[t]}
+            for t in sorted(by_type_rules, key=lambda t: (-by_type_repos[t], t))
+        ],
+        "repos_with_any_checkable": sum(1 for r in ok if r["checkable"] > 0),
+    }
+    if sample is not None and sample.exists():
+        srows = [json.loads(line) for line in sample.read_text(encoding="utf-8").splitlines() if line.strip()]
+        enforcement = {
+            "claude_code_hooks": sum(r["claude_settings_hooks"] for r in srows),
+            "gemini_hooks": sum(r["gemini_settings_hooks"] for r in srows),
+            **{k: sum(r["enforcement"].get(k, False) for r in srows) for k in ENFORCEMENT_MARKERS},
+        }
+        agent_hooks = sum(
+            1
+            for r in srows
+            if r["claude_settings_hooks"]
+            or r["gemini_settings_hooks"]
+            or any(
+                r["enforcement"].get(k) for k in ("codex_hooks", "cursor_hooks", "copilot_hooks", "opencode_plugins")
+            )
+        )
+        git_hooks = sum(1 for r in srows if any(r["enforcement"].get(k) for k in ("pre_commit", "husky", "lefthook")))
+        either = sum(
+            1
+            for r in srows
+            if r["claude_settings_hooks"] or r["gemini_settings_hooks"] or any(r["enforcement"].values())
+        )
+        out["enforcement"] = {
+            "counts": enforcement,
+            "agent_hooks_repos": agent_hooks,
+            "git_hook_repos": git_hooks,
+            "any_repos": either,
+            "any_share": either / len(srows) if srows else 0,
+        }
+        lic: dict[str, int] = {}
+        for r in srows:
+            key = r["license_spdx"] or "none"
+            lic[key] = lic.get(key, 0) + 1
+        out["licences"] = dict(sorted(lic.items(), key=lambda kv: -kv[1]))
+        out["stars_median"] = statistics.median(r["stars"] for r in srows) if srows else 0
+    if llm is not None and llm.exists():
+        lrows = [json.loads(line) for line in llm.read_text(encoding="utf-8").splitlines() if line.strip()]
+        sent = sum(r["uncheckable_sent"] for r in lrows)
+        proposed = sum(sum(r["llm_proposed_by_type"].values()) for r in lrows)
+        out["llm"] = {
+            "uncheckable_sent": sent,
+            "proposed_checkable": proposed,
+            "proposed_share_of_unmapped": proposed / sent if sent else 0,
+            "checkable_share_with_llm": (checkable + proposed) / total if total else 0,
+        }
+    return out
