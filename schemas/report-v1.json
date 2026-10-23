@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/B0yko/obey/schemas/report-v1.json",
+  "title": "obey run report",
+  "type": "object",
+  "required": ["schema", "obey_version", "generated_at", "agents", "summary", "rules", "scores", "pooled", "suggestions",
+               "cost", "compare"],
+  "additionalProperties": false,
+  "$defs": {
+    "fraction": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "pooled": {
+      "type": "object",
+      "required": ["obeyed", "exercised", "runs", "compliance", "ci_low", "ci_high", "blocked_runs", "evasions",
+                   "evasion_rate"],
+      "properties": {
+        "obeyed": {"type": "integer", "minimum": 0}, "exercised": {"type": "integer", "minimum": 0},
+        "runs": {"type": "integer", "minimum": 0}, "compliance": {"$ref": "#/$defs/fraction"},
+        "ci_low": {"$ref": "#/$defs/fraction"}, "ci_high": {"$ref": "#/$defs/fraction"},
+        "blocked_runs": {"type": "integer", "minimum": 0}, "evasions": {"type": "integer", "minimum": 0},
+        "evasion_rate": {"$ref": "#/$defs/fraction"}
+      }
+    }
+  },
+  "properties": {
+    "schema": {"const": "obey-report-v1"},
+    "obey_version": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "repository": {"type": "string"},
+    "hardware": {"type": ["string", "null"]},
+    "agents": {"type": "array", "items": {"type": "object", "required": ["agent"],
+               "properties": {"agent": {"type": "string"}, "version": {"type": ["string", "null"]},
+                              "model": {"type": ["string", "null"]}}}},
+    "summary": {"type": "array", "items": {"type": "string"}},
+    "rules": {"type": "array", "items": {"type": "object", "required": ["id", "text", "source", "checker", "status"],
+              "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "source": {"type": "object"},
+                             "checker": {"type": "string"},
+                             "status": {"enum": ["active", "proposed", "uncheckable", "disabled"]}}}},
+    "scores": {"type": "array", "items": {"type": "object",
+               "required": ["rule_id", "agent", "arm", "runs", "exercised", "obeyed", "violated", "compliance",
+                            "ci_low", "ci_high", "exercised_share", "blocked_runs", "evasions", "evasion_rate",
+                            "violation_example", "errors"],
+               "properties": {"arm": {"enum": ["rule", "baseline", "enforced"]},
+                              "compliance": {"$ref": "#/$defs/fraction"}, "ci_low": {"$ref": "#/$defs/fraction"},
+                              "ci_high": {"$ref": "#/$defs/fraction"},
+                              "exercised_share": {"$ref": "#/$defs/fraction"},
+                              "evasion_rate": {"$ref": "#/$defs/fraction"}}}},
+    "pooled": {"type": "object", "additionalProperties": {"type": "object",
+               "additionalProperties": {"$ref": "#/$defs/pooled"}}},
+    "suggestions": {"type": "array", "items": {"type": "object", "required": ["rule_id", "kind", "text"]}},
+    "cost": {"type": "object", "required": ["total_usd", "runs", "per_run_usd"]},
+    "compare": {"type": ["object", "null"], "required": ["rows", "before", "after"],
+                "properties": {"rows": {"type": "array"}, "before": {"$ref": "#/$defs/pooled"},
+                               "after": {"$ref": "#/$defs/pooled"}}}
+  }
+}
