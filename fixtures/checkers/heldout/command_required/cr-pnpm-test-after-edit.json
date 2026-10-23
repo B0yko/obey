@@ -1,0 +1,88 @@
+{
+  "id": "cr-pnpm-test-after-edit",
+  "rule": {
+    "type": "command_required",
+    "params": {
+      "pattern": "^pnpm (test|run test)\\b",
+      "edit_globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/render-table.ts"
+      },
+      {
+        "seq": 2,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/render-table.ts",
+        "old": "function renderCell(shifts: readonly Shift[]): string {\n  const items = shifts.map((shift) => {\n    const range = `${formatTime(parseIsoDateTime(shift.start))}-${formatTime(parseIsoDateTime(shift.end))}`;\n    const place = shift.location ? ` ${escapeHtml(shift.location)}` : \"\";\n    return `<span class=\"shift\">${range}${place}</span>`;\n  });\n  return `<td>${items.join(\"<br>\")}</td>`;",
+        "new": "function renderCell(shifts: readonly Shift[]): string {\n  const items = shifts.map((shift) => {\n    const range = `${formatTime(parseIsoDateTime(shift.start))}-${formatTime(parseIsoDateTime(shift.end))}`;\n    const place = shift.location ? ` @ ${escapeHtml(shift.location)}` : \"\";\n    return `<span class=\"shift\">${range}${place}</span>`;\n  });\n  return `<td>${items.join(\"<br>\")}</td>`;"
+      },
+      {
+        "seq": 3,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/render-table.test.ts",
+        "old": "    expect(html).toContain('<td class=\"total\">0h</td>');\n  });\n});",
+        "new": "    expect(html).toContain('<td class=\"total\">0h</td>');\n  });\n});\n\ndescribe(\"renderWeekTable location\", () => {\n  it(\"prefixes the location with @\", () => {\n    const html = renderWeekTable([{ id: \"p1\", name: \"Ada\", role: \"barista\" }], [{ id: \"s1\", personId: \"p1\", start: \"2026-03-04T09:00:00Z\", end: \"2026-03-04T17:00:00Z\", location: \"Bar\" }], WEEK);\n    expect(html).toContain(\"@ Bar\");\n  });\n});"
+      },
+      {
+        "seq": 4,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "pnpm test 2>&1 | tail -5",
+        "exit_code": 0,
+        "output": " Tests  20 passed (20)"
+      }
+    ],
+    "diff": "diff --git a/src/render-table.ts b/src/render-table.ts\nindex 6476637..27d354f 100644\n--- a/src/render-table.ts\n+++ b/src/render-table.ts\n@@ -19,7 +19,7 @@\n function renderCell(shifts: readonly Shift[]): string {\n   const items = shifts.map((shift) => {\n     const range = `${formatTime(parseIsoDateTime(shift.start))}-${formatTime(parseIsoDateTime(shift.end))}`;\n-    const place = shift.location ? ` ${escapeHtml(shift.location)}` : \"\";\n+    const place = shift.location ? ` @ ${escapeHtml(shift.location)}` : \"\";\n     return `<span class=\"shift\">${range}${place}</span>`;\n   });\n   return `<td>${items.join(\"<br>\")}</td>`;\ndiff --git a/src/render-table.test.ts b/src/render-table.test.ts\nindex e8a7640..1066e6f 100644\n--- a/src/render-table.test.ts\n+++ b/src/render-table.test.ts\n@@ -32,3 +32,10 @@\n     expect(html).toContain('<td class=\"total\">0h</td>');\n   });\n });\n+\n+describe(\"renderWeekTable location\", () => {\n+  it(\"prefixes the location with @\", () => {\n+    const html = renderWeekTable([{ id: \"p1\", name: \"Ada\", role: \"barista\" }], [{ id: \"s1\", personId: \"p1\", start: \"2026-03-04T09:00:00Z\", end: \"2026-03-04T17:00:00Z\", location: \"Bar\" }], WEEK);\n+    expect(html).toContain(\"@ Bar\");\n+  });\n+});\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "obeyed",
+  "tags": [],
+  "note": "`pnpm test` exited 0 after the last TypeScript edit."
+}

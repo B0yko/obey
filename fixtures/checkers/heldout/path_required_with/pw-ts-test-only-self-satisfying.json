@@ -1,0 +1,79 @@
+{
+  "id": "pw-ts-test-only-self-satisfying",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "src/**/*.ts"
+      ],
+      "require": [
+        "src/**/*.test.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/shift-planner.test.ts",
+        "old": "    ]);\n  });\n});",
+        "new": "    ]);\n  });\n});\n\ndescribe(\"MAX_SHIFT_HOURS\", () => {\n  it(\"is ten\", () => {\n    expect(MAX_SHIFT_HOURS).toBe(10);\n  });\n});"
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "pnpm test",
+        "exit_code": 0,
+        "output": "Tests 20 passed"
+      }
+    ],
+    "diff": "diff --git a/src/shift-planner.test.ts b/src/shift-planner.test.ts\nindex b669d67..3068911 100644\n--- a/src/shift-planner.test.ts\n+++ b/src/shift-planner.test.ts\n@@ -64,3 +64,9 @@\n     ]);\n   });\n });\n+\n+describe(\"MAX_SHIFT_HOURS\", () => {\n+  it(\"is ten\", () => {\n+    expect(MAX_SHIFT_HOURS).toBe(10);\n+  });\n+});\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative",
+    "glob"
+  ],
+  "note": "src/shift-planner.test.ts matches the when-glob and is itself a require file, so a test-only change is fine."
+}

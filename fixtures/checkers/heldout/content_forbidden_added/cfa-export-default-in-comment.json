@@ -1,0 +1,67 @@
+{
+  "id": "cfa-export-default-in-comment",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "^export default\\b",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "README.md"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/render-table.ts",
+        "old": "  \"'\": \"&#39;\",\n};\n\n/** Escape text for use inside HTML element content or a quoted attribute. */\nexport function escapeHtml(text: string): string {\n  return text.replace(/[&<>\"']/g, (char) => HTML_ESCAPES[char] ?? char);",
+        "new": "  \"'\": \"&#39;\",\n};\n\n// export default is not used in this project; named exports only.\n/** Escape text for use inside HTML element content or a quoted attribute. */\nexport function escapeHtml(text: string): string {\n  return text.replace(/[&<>\"']/g, (char) => HTML_ESCAPES[char] ?? char);"
+      }
+    ],
+    "diff": "diff --git a/src/render-table.ts b/src/render-table.ts\nindex 6476637..27d354f 100644\n--- a/src/render-table.ts\n+++ b/src/render-table.ts\n@@ -11,6 +11,7 @@\n   \"'\": \"&#39;\",\n };\n \n+// export default is not used in this project; named exports only.\n /** Escape text for use inside HTML element content or a quoted attribute. */\n export function escapeHtml(text: string): string {\n   return text.replace(/[&<>\"']/g, (char) => HTML_ESCAPES[char] ?? char);\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative",
+    "regex"
+  ],
+  "note": "The added line is a comment starting with //, so `^export default` does not match."
+}

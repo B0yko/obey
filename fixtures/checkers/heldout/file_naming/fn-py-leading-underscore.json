@@ -1,0 +1,65 @@
+{
+  "id": "fn-py-leading-underscore",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.py",
+        "tests/**/*.py"
+      ],
+      "pattern": "[a-z_][a-z0-9_]*\\.py"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/ledgerline/errors.py"
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/ledgerline/_compat.py",
+        "content": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Report helpers.\"\"\"\n"
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/_compat.py b/src/ledgerline/_compat.py\nnew file mode 100644\nindex 0000000..d956665\n--- /dev/null\n+++ b/src/ledgerline/_compat.py\n@@ -0,0 +1,2 @@\n+# SPDX-License-Identifier: Apache-2.0\n+\"\"\"Report helpers.\"\"\"\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "new_file",
+    "tricky_negative"
+  ],
+  "note": "The first character class allows a leading underscore."
+}

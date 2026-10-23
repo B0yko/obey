@@ -1,0 +1,71 @@
+{
+  "id": "pw-manifest-without-lockfile",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "package.json"
+      ],
+      "require": [
+        "pnpm-lock.yaml"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "package.json",
+        "old": "    \"typescript\": \"~6.0.3\",\n    \"typescript-eslint\": \"^8.72.0\",\n    \"vitest\": \"^5.0.5\"\n  }\n}",
+        "new": "    \"typescript\": \"~6.0.3\",\n    \"typescript-eslint\": \"^8.72.0\",\n    \"vitest\": \"^5.0.5\"\n  },\n  \"dependencies\": {\n    \"zod\": \"^3.24.1\"\n  }\n}"
+      }
+    ],
+    "diff": "diff --git a/package.json b/package.json\nindex 694f099..254939c 100644\n--- a/package.json\n+++ b/package.json\n@@ -22,5 +22,8 @@\n     \"typescript\": \"~6.0.3\",\n     \"typescript-eslint\": \"^8.72.0\",\n     \"vitest\": \"^5.0.5\"\n+  },\n+  \"dependencies\": {\n+    \"zod\": \"^3.24.1\"\n   }\n }\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "violated",
+  "tags": [
+    "lockfile",
+    "manual_edit"
+  ],
+  "note": "package.json changed and pnpm-lock.yaml did not."
+}

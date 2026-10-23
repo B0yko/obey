@@ -1,0 +1,68 @@
+{
+  "id": "pw-renamed-src-module",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "src/**/*.py"
+      ],
+      "require": [
+        "tests/**/*.py"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "grep -rn \"InvoiceService\" src tests | head -20",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "git mv src/ledgerline/importers.py src/ledgerline/order_import.py",
+        "exit_code": 0,
+        "output": ""
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/importers.py b/src/ledgerline/order_import.py\nsimilarity index 100%\nrename from src/ledgerline/importers.py\nrename to src/ledgerline/order_import.py\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "I made the change and left it uncommitted in the working tree.\n\nSummary: Applied the change with a small focused diff; tests and lint were run."
+  },
+  "expected": "violated",
+  "tags": [
+    "rename"
+  ],
+  "note": "A rename touches the old and new src paths; no test file changed."
+}

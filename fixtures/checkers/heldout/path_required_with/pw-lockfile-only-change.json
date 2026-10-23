@@ -1,0 +1,71 @@
+{
+  "id": "pw-lockfile-only-change",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "package.json"
+      ],
+      "require": [
+        "pnpm-lock.yaml"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "sed -n '1,80p' src/api/client.ts",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "pnpm install --lockfile-only",
+        "exit_code": 0,
+        "output": "Lockfile is up to date"
+      }
+    ],
+    "diff": "diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml\nindex 665cec2..ae6c10d 100644\n--- a/pnpm-lock.yaml\n+++ b/pnpm-lock.yaml\n@@ -7,6 +7,10 @@\n importers:\n \n   .:\n+    dependencies:\n+      zod:\n+        specifier: ^3.24.1\n+        version: 3.24.1\n     devDependencies:\n       '@eslint/js':\n         specifier: ^10.0.1\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "tricky_negative",
+    "lockfile"
+  ],
+  "note": "Only pnpm-lock.yaml changed; package.json, the when-file, is unchanged."
+}

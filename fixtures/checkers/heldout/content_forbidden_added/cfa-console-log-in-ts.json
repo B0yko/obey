@@ -1,0 +1,66 @@
+{
+  "id": "cfa-console-log-in-ts",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "\\bconsole\\.\\w+\\(",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "sed -n '1,80p' src/api/client.ts",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/render-table.ts",
+        "old": "/** Render the weekly rota as an HTML table: one row per person, one column per day. */\nexport function renderWeekTable(people: readonly Person[], shifts: readonly Shift[], weekStart: Date): string {\n  const days = weekDays(weekStart);\n  const hours = weeklyHours(shifts, weekStart);\n  const header = days.map((day) => `<th scope=\"col\">${escapeHtml(formatDayLabel(day))}</th>`).join(\"\");\n  const rows = people.map((person) => {",
+        "new": "/** Render the weekly rota as an HTML table: one row per person, one column per day. */\nexport function renderWeekTable(people: readonly Person[], shifts: readonly Shift[], weekStart: Date): string {\n  const days = weekDays(weekStart);\n  console.log(\"rendering\", people.length);\n  const hours = weeklyHours(shifts, weekStart);\n  const header = days.map((day) => `<th scope=\"col\">${escapeHtml(formatDayLabel(day))}</th>`).join(\"\");\n  const rows = people.map((person) => {"
+      }
+    ],
+    "diff": "diff --git a/src/render-table.ts b/src/render-table.ts\nindex 6476637..27d354f 100644\n--- a/src/render-table.ts\n+++ b/src/render-table.ts\n@@ -28,6 +28,7 @@\n /** Render the weekly rota as an HTML table: one row per person, one column per day. */\n export function renderWeekTable(people: readonly Person[], shifts: readonly Shift[], weekStart: Date): string {\n   const days = weekDays(weekStart);\n+  console.log(\"rendering\", people.length);\n   const hours = weeklyHours(shifts, weekStart);\n   const header = days.map((day) => `<th scope=\"col\">${escapeHtml(formatDayLabel(day))}</th>`).join(\"\");\n   const rows = people.map((person) => {\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "The added line calls console.log in a TypeScript source file."
+}

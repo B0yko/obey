@@ -1,0 +1,69 @@
+{
+  "id": "cfa-removed-eslint-disable",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "eslint-disable",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "ls src",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/render-table.ts",
+        "old": "export function escapeHtml(text: string): string {\n  // eslint-disable-next-line no-useless-escape\n  return text.replace(/[&<>\"']/g, (char) => HTML_ESCAPES[char] ?? char);\n}\n",
+        "new": "export function escapeHtml(text: string): string {\n  // Replace markup characters only.\n  return text.replace(/[&<>\"']/g, (char) => HTML_ESCAPES[char] ?? char);\n}\n"
+      }
+    ],
+    "diff": "diff --git a/src/render-table.ts b/src/render-table.ts\nindex 6476637..27d354f 100644\n--- a/src/render-table.ts\n+++ b/src/render-table.ts\n@@ -15,5 +15,5 @@\n export function escapeHtml(text: string): string {\n-  // eslint-disable-next-line no-useless-escape\n+  // Replace markup characters only.\n   return text.replace(/[&<>\"']/g, (char) => HTML_ESCAPES[char] ?? char);\n }\n \n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative",
+    "removed_line"
+  ],
+  "note": "The eslint-disable text is only in a removed line; the one added line is a doc comment."
+}

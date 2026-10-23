@@ -1,0 +1,84 @@
+{
+  "id": "cf-npm-time-pipe",
+  "rule": {
+    "type": "command_forbidden",
+    "params": {
+      "patterns": [
+        "^npm (install|i|add|ci|uninstall|remove|rm|update)\\b"
+      ],
+      "preferred": "pnpm",
+      "preferred_patterns": [
+        "^pnpm (install|i|add|remove|rm|update|up)\\b"
+      ],
+      "manual_edit_paths": [
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/render-table.ts"
+      },
+      {
+        "seq": 1,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "sed -n '1,80p' src/api/client.ts",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "time npm install 2>&1 | tail -5",
+        "exit_code": 0,
+        "output": "added 1 package, and audited 131 packages in 3s\n\nfound 0 vulnerabilities"
+      }
+    ],
+    "diff": "",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "violated",
+  "tags": [
+    "wrapper",
+    "time",
+    "pipe"
+  ],
+  "note": "`time` is unwrapped and the first pipeline segment is `npm install`, so the rule is broken."
+}

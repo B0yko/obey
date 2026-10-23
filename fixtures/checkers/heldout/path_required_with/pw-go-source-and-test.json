@@ -1,0 +1,72 @@
+{
+  "id": "pw-go-source-and-test",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "internal/**/*.go"
+      ],
+      "require": [
+        "internal/**/*_test.go"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "README.md"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "internal/router/router.go",
+        "old": "\nfunc health(w http.ResponseWriter, _ *http.Request) {\n\tw.WriteHeader(http.StatusOK)\n\t_, _ = w.Write([]byte(\"ok\"))\n}\n\nfunc listRoutes(w http.ResponseWriter, _ *http.Request) {",
+        "new": "\nfunc health(w http.ResponseWriter, _ *http.Request) {\n\tw.WriteHeader(http.StatusOK)\n\t_, _ = w.Write([]byte(\"ok\\n\"))\n}\n\nfunc listRoutes(w http.ResponseWriter, _ *http.Request) {"
+      },
+      {
+        "seq": 2,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "internal/router/router_test.go",
+        "old": "func TestHealth(t *testing.T) {\n\trec := httptest.NewRecorder()\n\tNew().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, \"/healthz\", nil))\n\tif rec.Code != http.StatusOK {\n\t\tt.Fatalf(\"status = %d\", rec.Code)\n\t}\n}",
+        "new": "func TestHealth(t *testing.T) {\n\trec := httptest.NewRecorder()\n\tNew().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, \"/healthz\", nil))\n\tif rec.Body.String() != \"ok\\n\" {\n\t\tt.Fatalf(\"body = %q\", rec.Body.String())\n\t}\n\tif rec.Code != http.StatusOK {\n\t\tt.Fatalf(\"status = %d\", rec.Code)\n\t}\n}"
+      },
+      {
+        "seq": 3,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "go test ./...",
+        "exit_code": 0,
+        "output": "ok"
+      }
+    ],
+    "diff": "diff --git a/internal/router/router.go b/internal/router/router.go\nindex d586615..17719d1 100644\n--- a/internal/router/router.go\n+++ b/internal/router/router.go\n@@ -17,7 +17,7 @@\n \n func health(w http.ResponseWriter, _ *http.Request) {\n \tw.WriteHeader(http.StatusOK)\n-\t_, _ = w.Write([]byte(\"ok\"))\n+\t_, _ = w.Write([]byte(\"ok\\n\"))\n }\n \n func listRoutes(w http.ResponseWriter, _ *http.Request) {\ndiff --git a/internal/router/router_test.go b/internal/router/router_test.go\nindex df5132c..5c310aa 100644\n--- a/internal/router/router_test.go\n+++ b/internal/router/router_test.go\n@@ -9,7 +9,10 @@\n func TestHealth(t *testing.T) {\n \trec := httptest.NewRecorder()\n \tNew().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, \"/healthz\", nil))\n-\tif rec.Code != http.StatusOK {\n+\tif rec.Body.String() != \"ok\\n\" {\n+\t\tt.Fatalf(\"body = %q\", rec.Body.String())\n+\t}\n+\tif rec.Code != http.StatusOK {\n \t\tt.Fatalf(\"status = %d\", rec.Code)\n \t}\n }\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "cmd/routekit/main.go",
+      "docs/design.md",
+      "go.mod",
+      "go.sum",
+      "internal/router/router.go",
+      "internal/router/router_test.go",
+      "internal/store/store.go",
+      "internal/store/store_test.go",
+      "scripts/seed.sh"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "go"
+  ],
+  "note": "router.go and router_test.go both changed."
+}

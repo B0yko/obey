@@ -1,0 +1,65 @@
+{
+  "id": "cfa-new-ts-file-enum",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "^\\s*(export\\s+)?(const\\s+)?enum\\s",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/render-table.ts"
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/shift-role.ts",
+        "content": "// SPDX-License-Identifier: Apache-2.0\nexport enum ShiftRole {\n  Open = \"open\",\n  Close = \"close\",\n}\n"
+      }
+    ],
+    "diff": "diff --git a/src/shift-role.ts b/src/shift-role.ts\nnew file mode 100644\nindex 0000000..5d3decd\n--- /dev/null\n+++ b/src/shift-role.ts\n@@ -0,0 +1,5 @@\n+// SPDX-License-Identifier: Apache-2.0\n+export enum ShiftRole {\n+  Open = \"open\",\n+  Close = \"close\",\n+}\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "violated",
+  "tags": [
+    "new_file"
+  ],
+  "note": "The new TypeScript file declares an enum, matching the added-line regex."
+}

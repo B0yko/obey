@@ -1,0 +1,75 @@
+{
+  "id": "fn-new-file-outside-globs-bad-name",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.ts"
+      ],
+      "pattern": "[a-z0-9]+(-[a-z0-9]+)*(\\.test)?\\.ts"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/shift-role.ts",
+        "content": "// SPDX-License-Identifier: Apache-2.0\nexport type ShiftRole = \"open\" | \"close\";\n"
+      },
+      {
+        "seq": 2,
+        "type": "write",
+        "tool": "Write",
+        "path": "docs/NOTES_2026.md",
+        "content": "Scratch notes.\n"
+      }
+    ],
+    "diff": "diff --git a/src/shift-role.ts b/src/shift-role.ts\nnew file mode 100644\nindex 0000000..5d3decd\n--- /dev/null\n+++ b/src/shift-role.ts\n@@ -0,0 +1,2 @@\n+// SPDX-License-Identifier: Apache-2.0\n+export type ShiftRole = \"open\" | \"close\";\ndiff --git a/docs/NOTES_2026.md b/docs/NOTES_2026.md\nnew file mode 100644\nindex 0000000..b1a1c61\n--- /dev/null\n+++ b/docs/NOTES_2026.md\n@@ -0,0 +1,1 @@\n+Scratch notes.\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative",
+    "outside_globs"
+  ],
+  "note": "docs/NOTES_2026.md is outside the globs; the in-glob new file is well named."
+}

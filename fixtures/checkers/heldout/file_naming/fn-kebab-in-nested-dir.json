@@ -1,0 +1,68 @@
+{
+  "id": "fn-kebab-in-nested-dir",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.ts"
+      ],
+      "pattern": "[a-z0-9]+(-[a-z0-9]+)*(\\.test)?\\.ts"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "sed -n '1,80p' src/api/client.ts",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/api/rate-limiter.ts",
+        "content": "// SPDX-License-Identifier: Apache-2.0\nexport type ShiftRole = \"open\" | \"close\";\n"
+      }
+    ],
+    "diff": "diff --git a/src/api/rate-limiter.ts b/src/api/rate-limiter.ts\nnew file mode 100644\nindex 0000000..56376ad\n--- /dev/null\n+++ b/src/api/rate-limiter.ts\n@@ -0,0 +1,2 @@\n+// SPDX-License-Identifier: Apache-2.0\n+export type ShiftRole = \"open\" | \"close\";\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "I made the change and left it uncommitted in the working tree.\n\nSummary: Applied the change with a small focused diff; tests and lint were run."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "new_file",
+    "nested"
+  ],
+  "note": "src/**/*.ts matches nested directories and the basename is kebab-case."
+}

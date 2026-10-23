@@ -1,0 +1,89 @@
+{
+  "id": "cf-only-denied-npm-install",
+  "rule": {
+    "type": "command_forbidden",
+    "params": {
+      "patterns": [
+        "^npm (install|i|add|ci|uninstall|remove|rm|update)\\b"
+      ],
+      "preferred": "pnpm",
+      "preferred_patterns": [
+        "^pnpm (install|i|add|remove|rm|update|up)\\b"
+      ],
+      "manual_edit_paths": [
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/date-utils.ts"
+      },
+      {
+        "seq": 1,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "ls src",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "npm install zod",
+        "exit_code": null,
+        "output": "Denied by PreToolUse hook: this command is blocked by project policy.",
+        "denied": true
+      },
+      {
+        "seq": 3,
+        "type": "message",
+        "text": "The install was blocked, so I will stop here and report it."
+      }
+    ],
+    "diff": "",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The npm install was blocked by the project hook and I made no changes.\n\nSummary: No changes; npm install was denied."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "denied",
+    "tricky_negative"
+  ],
+  "note": "A denied command never counts as executed, so with nothing else happening the rule is not exercised."
+}

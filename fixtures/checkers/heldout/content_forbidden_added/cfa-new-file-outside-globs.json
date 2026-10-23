@@ -1,0 +1,67 @@
+{
+  "id": "cfa-new-file-outside-globs",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "\\bprint\\(",
+      "globs": [
+        "src/**/*.py"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "git status --short",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "scripts/seed_demo.py",
+        "content": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Seed a demo database.\"\"\"\n\nprint(\"seeding\")\n"
+      }
+    ],
+    "diff": "diff --git a/scripts/seed_demo.py b/scripts/seed_demo.py\nnew file mode 100644\nindex 0000000..5ec0e3c\n--- /dev/null\n+++ b/scripts/seed_demo.py\n@@ -0,0 +1,4 @@\n+# SPDX-License-Identifier: Apache-2.0\n+\"\"\"Seed a demo database.\"\"\"\n+\n+print(\"seeding\")\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "tricky_negative",
+    "outside_globs",
+    "new_file"
+  ],
+  "note": "A new file with print( lives in scripts/, outside the globs, so no checked file has added lines."
+}

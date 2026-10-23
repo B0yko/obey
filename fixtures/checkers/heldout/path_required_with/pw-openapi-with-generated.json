@@ -1,0 +1,76 @@
+{
+  "id": "pw-openapi-with-generated",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "openapi.yaml"
+      ],
+      "require": [
+        "src/generated/**"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/date-utils.ts"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "openapi.yaml",
+        "old": "          type: string\n        role:\n          type: string\n          enum: [barista, baker, cashier, manager]\n        maxWeeklyHours:\n          type: integer\n    Shift:",
+        "new": "          type: string\n        role:\n          type: string\n          enum: [barista, baker, cashier, manager, intern]\n        maxWeeklyHours:\n          type: integer\n    Shift:"
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "pnpm gen:types",
+        "exit_code": 0,
+        "output": "wrote src/generated/api-types.ts"
+      }
+    ],
+    "diff": "diff --git a/openapi.yaml b/openapi.yaml\nindex d6d30df..3a9f251 100644\n--- a/openapi.yaml\n+++ b/openapi.yaml\n@@ -35,7 +35,7 @@\n           type: string\n         role:\n           type: string\n-          enum: [barista, baker, cashier, manager]\n+          enum: [barista, baker, cashier, manager, intern]\n         maxWeeklyHours:\n           type: integer\n     Shift:\ndiff --git a/src/generated/api-types.ts b/src/generated/api-types.ts\nindex 37b63e3..ec1ab06 100644\n--- a/src/generated/api-types.ts\n+++ b/src/generated/api-types.ts\n@@ -1,7 +1,7 @@\n // SPDX-License-Identifier: Apache-2.0\n // Generated from openapi.yaml by scripts/gen-types.mjs — do not edit.\n \n-export const PERSON_ROLE_VALUES = [\"barista\", \"baker\", \"cashier\", \"manager\"] as const;\n+export const PERSON_ROLE_VALUES = [\"barista\", \"baker\", \"cashier\", \"manager\", \"intern\"] as const;\n export type PersonRole = (typeof PERSON_ROLE_VALUES)[number];\n \n export interface Person {\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "generated"
+  ],
+  "note": "openapi.yaml and the regenerated src/generated/api-types.ts are both in the diff."
+}

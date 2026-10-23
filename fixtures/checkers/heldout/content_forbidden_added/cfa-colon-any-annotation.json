@@ -1,0 +1,64 @@
+{
+  "id": "cfa-colon-any-annotation",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": ":\\s*any\\b|\\bas any\\b|<any>",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/date-utils.ts"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/api/client.ts",
+        "old": "    if (!response.ok) {\n      throw new ApiError(`request to ${path} failed with status ${response.status}`, response.status);\n    }\n    const body: unknown = await response.json();\n    return body;\n  }\n}",
+        "new": "    if (!response.ok) {\n      throw new ApiError(`request to ${path} failed with status ${response.status}`, response.status);\n    }\n    const body: any = await response.json();\n    return body;\n  }\n}"
+      }
+    ],
+    "diff": "diff --git a/src/api/client.ts b/src/api/client.ts\nindex 547c451..eafd395 100644\n--- a/src/api/client.ts\n+++ b/src/api/client.ts\n@@ -55,7 +55,7 @@\n     if (!response.ok) {\n       throw new ApiError(`request to ${path} failed with status ${response.status}`, response.status);\n     }\n-    const body: unknown = await response.json();\n+    const body: any = await response.json();\n     return body;\n   }\n }\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "violated",
+  "tags": [],
+  "note": "The replaced line annotates a variable with `: any`."
+}

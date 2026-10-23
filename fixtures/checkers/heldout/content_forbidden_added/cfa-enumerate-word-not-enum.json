@@ -1,0 +1,67 @@
+{
+  "id": "cfa-enumerate-word-not-enum",
+  "rule": {
+    "type": "content_forbidden_added",
+    "params": {
+      "regex": "^\\s*(export\\s+)?(const\\s+)?enum\\s",
+      "globs": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "README.md"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "src/generated/api-types.ts",
+        "old": "// Generated from openapi.yaml by scripts/gen-types.mjs — do not edit.\n\nexport const PERSON_ROLE_VALUES = [\"barista\", \"baker\", \"cashier\", \"manager\"] as const;\nexport type PersonRole = (typeof PERSON_ROLE_VALUES)[number];\n\nexport interface Person {\n  id: string;",
+        "new": "// Generated from openapi.yaml by scripts/gen-types.mjs — do not edit.\n\nexport const PERSON_ROLE_VALUES = [\"barista\", \"baker\", \"cashier\", \"manager\"] as const;\nexport type PersonRole = (typeof PERSON_ROLE_VALUES)[number]; // enumerate roles\n\nexport interface Person {\n  id: string;"
+      }
+    ],
+    "diff": "diff --git a/src/generated/api-types.ts b/src/generated/api-types.ts\nindex 37b63e3..ec1ab06 100644\n--- a/src/generated/api-types.ts\n+++ b/src/generated/api-types.ts\n@@ -2,7 +2,7 @@\n // Generated from openapi.yaml by scripts/gen-types.mjs — do not edit.\n \n export const PERSON_ROLE_VALUES = [\"barista\", \"baker\", \"cashier\", \"manager\"] as const;\n-export type PersonRole = (typeof PERSON_ROLE_VALUES)[number];\n+export type PersonRole = (typeof PERSON_ROLE_VALUES)[number]; // enumerate roles\n \n export interface Person {\n   id: string;\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative",
+    "regex"
+  ],
+  "note": "The added comment says \"enumerate\" and no line declares an enum."
+}

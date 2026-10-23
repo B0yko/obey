@@ -1,0 +1,283 @@
+{
+  "id": "cra-rec-codex-py-rename-column",
+  "rule": {
+    "type": "content_required_added",
+    "params": {
+      "regex": "SPDX-License-Identifier: Apache-2\\.0",
+      "globs": [
+        "**/*.py"
+      ],
+      "scope": "new_files"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "type": "message",
+        "text": "I’ll trace the invoice model, database schema, migrations, and tests, then update the rename and its migration so fresh and existing databases match.",
+        "seq": 0
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "rg -n \"due_date|due_on\" .",
+        "exit_code": 0,
+        "output": "./migrations/0003_invoice_due_date.sql:3:ALTER TABLE invoices ADD COLUMN due_date TEXT;\n./migrations/0003_invoice_due_date.sql:5:UPDATE invoices SET due_date = issued_at WHERE due_date IS NULL;\n./migrations/0003_invoice_due_date.sql:7:CREATE INDEX idx_invoices_status_due ON invoices(status, due_date);\n./tests/test_db.py:39:def test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime) -> None:\n./tests/test_db.py:48:        due_date=date(2026, 4, 3),\n./tests/test_service.py:41:def test_create_invoice_numbers_sequentially_and_sets_due_date(\n./tests/test_service.py:47:    assert first.due_date == date(2026, 4, 3)\n./tests/test_service.py:48:    assert second.due_date == date(2026, 3, 18)\n./src/ledgerline/models.py:48:    due_date: date | None\n./src/ledgerline/db.py:113:                \"INSERT INTO invoices (number, customer_id, currency, status, issued_at, due_date)\"\n./src/ledgerline/db.py:121:                    invoice.due_date.isoformat() if invoice.due_date else None,\n./src/ledgerline/db.py:181:            due_date=date.fromisoformat(row[\"due_date\"]) if row[\"due_date\"] else None,\n./src/ledgerline/service.py:91:            due_date=issued + timedelta(days=terms_days),\n./src/ledgerline/service.py:143:        return [inv for inv in sent if inv.due_date is not None and inv.due_date < cutoff]\n",
+        "seq": 1
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "sed -n '1,260p' src/ledgerline/db.py && sed -n '1,210p' src/ledgerline/models.py && sed -n '1,190p' src/ledgerline/service.py && rg --files migrations tests",
+        "exit_code": 0,
+        "output": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"SQLite persistence: migrations plus a small repository for each table.\"\"\"\n\nfrom __future__ import annotations\n\nimport logging\nimport sqlite3\nfrom collections.abc import Iterator\nfrom contextlib import contextmanager\nfrom datetime import UTC, date, datetime\nfrom decimal import Decimal\nfrom pathlib import Path\n\nfrom ledgerline.errors import NotFoundError, ValidationError\nfrom ledgerline.models import Customer, Invoice, InvoiceLine, InvoiceStatus, StockItem\nfrom ledgerline.money import Money\n\nlogger = logging.getLogger(__name__)\n\nDEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / \"migrations\"\n\n\nclass Database:\n    \"\"\"A single SQLite connection with schema migrations applied on demand.\"\"\"\n\n    def __init__(self, path: str | Path = \":memory:\", migrations_dir: Path | None = None) -> None:\n        self._conn = sqlite3.connect(str(path))\n        self._conn.row_factory = sqlite3.Row\n        self._conn.execute(\"PRAGMA foreign_keys = ON\")\n        self._migrations_dir = migrations_dir or DEFAULT_MIGRATIONS_DIR\n        self._depth = 0\n\n    def close(self) -> None:\n        self._conn.close()\n\n    @contextmanager\n    def transaction(self) -> Iterator[sqlite3.Connection]:\n        \"\"\"Commit on success and roll back on error; nested uses join the outer transaction.\"\"\"\n        self._depth += 1\n        try:\n            yield self._conn\n        except BaseException:\n            if self._depth == 1:\n                self._conn.rollback()\n            raise\n        else:\n            if self._depth == 1:\n                self._conn.commit()\n        finally:\n            self._depth -= 1\n\n    # -- migrations ---------------------------------------------------------\n\n    def migrate(self) -> list[str]:\n        \"\"\"Apply pending ``NNNN_name.sql`` files in order and return their versions.\"\"\"\n        if not self._migrations_dir.is_dir():\n            raise FileNotFoundError(f\"migrations directory not found: {self._migrations_dir}\")\n        self._conn.execute(\n            \"CREATE TABLE IF NOT EXISTS schema_migrations (\"\n            \"version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)\"\n        )\n        rows = self._conn.execute(\"SELECT version FROM schema_migrations\").fetchall()\n        done = {row[\"version\"] for row in rows}\n        applied: list[str] = []\n        for path in sorted(self._migrations_dir.glob(\"[0-9][0-9][0-9][0-9]_*.sql\")):\n            if path.stem in done:\n                continue\n            logger.info(\"applying migration %s\", path.name)\n            self._conn.executescript(path.read_text(encoding=\"utf-8\"))\n            self._conn.execute(\n                \"INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)\",\n                (path.stem, datetime.now(UTC).isoformat()),\n            )\n            self._conn.commit()\n            applied.append(path.stem)\n        return applied\n\n    # -- customers ----------------------------------------------------------\n\n    def add_customer(self, name: str, email: str, created_at: datetime) -> Customer:\n        try:\n            with self.transaction() as conn:\n                cur = conn.execute(\n                    \"INSERT INTO customers (name, email, created_at) VALUES (?, ?, ?)\",\n                    (name, email, created_at.isoformat()),\n                )\n        except sqlite3.IntegrityError:\n            raise ValidationError(f\"email already registered: {email}\") from None\n        return Customer(cur.lastrowid, name, email, created_at)\n\n    def get_customer(self, customer_id: int) -> Customer:\n        row = self._conn.execute(\"SELECT * FROM customers WHERE id = ?\", (customer_id,)).fetchone()\n        if row is None:\n            raise NotFoundError(f\"customer {customer_id} not found\")\n        return _customer(row)\n\n    def find_customer_by_email(self, email: str) -> Customer | None:\n        row = self._conn.execute(\"SELECT * FROM customers WHERE email = ?\", (email,)).fetchone()\n        return _customer(row) if row else None\n\n    # -- invoices --\n… [13373 more characters]",
+        "seq": 2
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "cat migrations/0001_init.sql && cat migrations/0002_add_customers.sql && cat migrations/0003_invoice_due_date.sql && sed -n '1,180p' tests/test_db.py && sed -n '1,120p' tests/test_service.py && cat Makefile",
+        "exit_code": 0,
+        "output": "-- Initial schema: invoices, their lines, and tracked stock items.\n\nCREATE TABLE invoices (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    number TEXT NOT NULL UNIQUE,\n    currency TEXT NOT NULL,\n    status TEXT NOT NULL DEFAULT 'draft',\n    issued_at TEXT NOT NULL\n);\n\nCREATE TABLE invoice_lines (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,\n    sku TEXT NOT NULL,\n    description TEXT NOT NULL,\n    quantity INTEGER NOT NULL CHECK (quantity > 0),\n    unit_price TEXT NOT NULL\n);\n\nCREATE INDEX idx_invoice_lines_invoice ON invoice_lines(invoice_id);\n\nCREATE TABLE stock_items (\n    sku TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    on_hand INTEGER NOT NULL DEFAULT 0\n);\n-- Customers, and a link from invoices to the customer they were issued to.\n\nCREATE TABLE customers (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    name TEXT NOT NULL,\n    email TEXT NOT NULL UNIQUE,\n    created_at TEXT NOT NULL\n);\n\nALTER TABLE invoices ADD COLUMN customer_id INTEGER REFERENCES customers(id);\n\nCREATE INDEX idx_invoices_customer ON invoices(customer_id);\n-- Payment terms: every invoice gets a due date (existing rows are due on the issue date).\n\nALTER TABLE invoices ADD COLUMN due_date TEXT;\n\nUPDATE invoices SET due_date = issued_at WHERE due_date IS NULL;\n\nCREATE INDEX idx_invoices_status_due ON invoices(status, due_date);\n# SPDX-License-Identifier: Apache-2.0\nfrom __future__ import annotations\n\nfrom datetime import date, datetime\nfrom decimal import Decimal\nfrom pathlib import Path\n\nimport pytest\n\nfrom ledgerline.db import DEFAULT_MIGRATIONS_DIR, Database\nfrom ledgerline.errors import NotFoundError, ValidationError\nfrom ledgerline.models import Invoice, InvoiceLine, InvoiceStatus\nfrom ledgerline.money import Money\n\n\ndef test_migrate_applies_every_file_once_and_in_order(tmp_path: Path) -> None:\n    database = Database(tmp_path / \"ledger.db\")\n    expected = sorted(p.stem for p in DEFAULT_MIGRATIONS_DIR.glob(\"*.sql\"))\n    assert expected[0] == \"0001_init\"\n    assert database.migrate() == expected\n    assert database.migrate() == []\n    database.close()\n    with pytest.raises(FileNotFoundError):\n        Database(migrations_dir=tmp_path / \"nope\").migrate()\n\n\ndef test_customer_round_trip_and_unique_email(db: Database, now: datetime) -> None:\n    created = db.add_customer(\"Ada Example\", \"ada@example.com\", now)\n    assert created.id is not None\n    assert db.get_customer(created.id) == created\n    assert db.find_customer_by_email(\"ada@example.com\") == created\n    assert db.find_customer_by_email(\"nobody@example.com\") is None\n    with pytest.raises(ValidationError):\n        db.add_customer(\"Ada Again\", \"ada@example.com\", now)\n    with pytest.raises(NotFoundError):\n        db.get_customer(999)\n\n\ndef test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime) -> None:\n    customer = db.add_customer(\"Bo Example\", \"bo@example.com\", now)\n    invoice = Invoice(\n        id=None,\n        number=\"INV-2026-00001\",\n        customer_id=customer.id,\n        currency=\"EUR\",\n        status=InvoiceStatus.DRAFT,\n        issued_at=date(2026, 3, 4),\n        due_date=date(2026, 4, 3),\n        lines=[InvoiceLine(\"SKU-1\", \"Widget\", 2, Money(Decimal(\"4.25\"), \"EUR\"))],\n    )\n    saved = db.save_invoice(invoice)\n    assert saved.id is not None\n    loaded = db.get_invoice(saved.id)\n    assert loaded == saved\n    assert loaded.total == Money(Decimal(\"8.50\"), \"EUR\")\n    assert db.list_invoices(status=InvoiceStatus.SENT) == []\n\n\ndef test_stock_adjustment(db: Database) -> None:\n    db.upsert_stock(\"SKU-1\", \"Widget\", 5)\n    assert db.adjust_stock(\"SKU-1\", -2).on_hand == 3\n    with pytest.raises(NotFoundError):\n        db.adjust_stock(\"SKU-404\", 1)\n# SPDX-License-Identifier: Apache-2.0\nfrom __future__ import annotations\n\nfrom datetime import date\nfrom decimal import Decimal\n\nimport pytest\n\nfrom ledgerline.db import Database\nfrom ledgerline.errors import (\n    InsufficientStockError,\n    InvalidTransition\n… [4817 more characters]",
+        "seq": 3
+      },
+      {
+        "type": "write",
+        "tool": "apply_patch",
+        "path": "migrations/0004_rename_invoice_due_date_to_due_on.sql",
+        "content": null,
+        "seq": 4
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "src/ledgerline/db.py",
+        "old": null,
+        "new": null,
+        "seq": 5
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "src/ledgerline/models.py",
+        "old": null,
+        "new": null,
+        "seq": 6
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "src/ledgerline/service.py",
+        "old": null,
+        "new": null,
+        "seq": 7
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "tests/test_db.py",
+        "old": null,
+        "new": null,
+        "seq": 8
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "tests/test_service.py",
+        "old": null,
+        "new": null,
+        "seq": 9
+      },
+      {
+        "type": "message",
+        "text": "The model and database access now use `due_on`, with a new migration that renames the stored column and rebuilds its index under the matching name. I’ve also added a schema assertion and am checking the remaining references before running the project checks.",
+        "seq": 10
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "git status --short",
+        "exit_code": 0,
+        "output": " M src/ledgerline/db.py\n M src/ledgerline/models.py\n M src/ledgerline/service.py\n M tests/test_db.py\n M tests/test_service.py\n?? migrations/0004_rename_invoice_due_date_to_due_on.sql\n",
+        "seq": 11
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "git diff --",
+        "exit_code": 0,
+        "output": "diff --git a/src/ledgerline/db.py b/src/ledgerline/db.py\nindex d816e04..44780ff 100644\n--- a/src/ledgerline/db.py\n+++ b/src/ledgerline/db.py\n@@ -110,7 +110,7 @@ class Database:\n         \"\"\"Insert a new invoice with its lines and return it with ``id`` set.\"\"\"\n         with self.transaction() as conn:\n             cur = conn.execute(\n-                \"INSERT INTO invoices (number, customer_id, currency, status, issued_at, due_date)\"\n+                \"INSERT INTO invoices (number, customer_id, currency, status, issued_at, due_on)\"\n                 \" VALUES (?, ?, ?, ?, ?, ?)\",\n                 (\n                     invoice.number,\n@@ -118,7 +118,7 @@ class Database:\n                     invoice.currency,\n                     invoice.status.value,\n                     invoice.issued_at.isoformat(),\n-                    invoice.due_date.isoformat() if invoice.due_date else None,\n+                    invoice.due_on.isoformat() if invoice.due_on else None,\n                 ),\n             )\n             invoice.id = cur.lastrowid\n@@ -178,7 +178,7 @@ class Database:\n             currency=currency,\n             status=InvoiceStatus(row[\"status\"]),\n             issued_at=date.fromisoformat(row[\"issued_at\"]),\n-            due_date=date.fromisoformat(row[\"due_date\"]) if row[\"due_date\"] else None,\n+            due_on=date.fromisoformat(row[\"due_on\"]) if row[\"due_on\"] else None,\n             lines=lines,\n         )\n \ndiff --git a/src/ledgerline/models.py b/src/ledgerline/models.py\nindex ae8e14b..2f7367b 100644\n--- a/src/ledgerline/models.py\n+++ b/src/ledgerline/models.py\n@@ -45,7 +45,7 @@ class Invoice:\n     currency: str\n     status: InvoiceStatus\n     issued_at: date\n-    due_date: date | None\n+    due_on: date | None\n     lines: list[InvoiceLine] = field(default_factory=list)\n \n     @property\ndiff --git a/src/ledgerline/service.py b/src/ledgerline/service.py\nindex f8bb879..8408213 100644\n--- a/src/ledgerline/service.py\n+++ b/src/ledgerline/service.py\n@@ -88,7 +88,7 @@ class InvoiceService:\n             currency=currency,\n             status=InvoiceStatus.DRAFT,\n             issued_at=issued,\n-            due_date=issued + timedelta(days=terms_days),\n+            due_on=issued + timedelta(days=terms_days),\n             lines=list(lines),\n         )\n         saved = self._db.save_invoice(invoice)\n@@ -140,7 +140,7 @@ class InvoiceService:\n         \"\"\"Sent invoices whose due date is before ``today`` (default: the clock's date).\"\"\"\n         cutoff = today or self._clock().date()\n         sent = self._db.list_invoices(status=InvoiceStatus.SENT)\n-        return [inv for inv in sent if inv.due_date is not None and inv.due_date < cutoff]\n+        return [inv for inv in sent if inv.due_on is not None and inv.due_on < cutoff]\n \n     def outstanding_balance(self, customer_id: int) -> dict[str, Money]:\n         \"\"\"Unpaid (sent) totals for a customer, one entry per currency.\"\"\"\ndiff --git a/tests/test_db.py b/tests/test_db.py\nindex 8b3bcf8..5b90905 100644\n--- a/tests/test_db.py\n+++ b/tests/test_db.py\n@@ -36,7 +36,7 @@ def test_customer_round_trip_and_unique_email(db: Database, now: datetime) -> No\n         db.get_customer(999)\n \n \n-def test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime) -> None:\n+def test_invoice_round_trip_keeps_lines_and_due_on(db: Database, now: datetime) -> None:\n     customer = db.add_customer(\"Bo Example\", \"bo@example.com\", now)\n     invoice = Invoice(\n         id=None,\n@@ -45,7 +45,7 @@ def test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime\n         currency=\"EUR\",\n         status=InvoiceStatus.DRAFT,\n         issued_at=date(2026, 3, 4),\n-        due_date=date(2026, 4, 3),\n+        due_on=date(2026, 4, 3),\n         lines=[InvoiceLine(\"SKU-1\", \"Widget\", 2, Money(Decimal(\"4.25\"), \"EUR\"))],\n     )\n     saved = db.save_invoice(invoice)\n@@ -56,6 +56,14 @@ def test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime\n     assert db.list_invoices(status=InvoiceSta\n… [1468 more characters]",
+        "seq": 12
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "rg -n \"due_date|due_on\" src tests migrations",
+        "exit_code": 0,
+        "output": "tests/test_db.py:39:def test_invoice_round_trip_keeps_lines_and_due_on(db: Database, now: datetime) -> None:\ntests/test_db.py:48:        due_on=date(2026, 4, 3),\ntests/test_db.py:59:def test_invoice_schema_uses_due_on(db: Database) -> None:\ntests/test_db.py:63:    assert \"due_on\" in columns\ntests/test_db.py:64:    assert \"due_date\" not in columns\ntests/test_service.py:41:def test_create_invoice_numbers_sequentially_and_sets_due_on(\ntests/test_service.py:47:    assert first.due_on == date(2026, 4, 3)\ntests/test_service.py:48:    assert second.due_on == date(2026, 3, 18)\nsrc/ledgerline/models.py:48:    due_on: date | None\nsrc/ledgerline/db.py:113:                \"INSERT INTO invoices (number, customer_id, currency, status, issued_at, due_on)\"\nsrc/ledgerline/db.py:121:                    invoice.due_on.isoformat() if invoice.due_on else None,\nsrc/ledgerline/db.py:181:            due_on=date.fromisoformat(row[\"due_on\"]) if row[\"due_on\"] else None,\nmigrations/0003_invoice_due_date.sql:3:ALTER TABLE invoices ADD COLUMN due_date TEXT;\nmigrations/0003_invoice_due_date.sql:5:UPDATE invoices SET due_date = issued_at WHERE due_date IS NULL;\nmigrations/0003_invoice_due_date.sql:7:CREATE INDEX idx_invoices_status_due ON invoices(status, due_date);\nmigrations/0004_rename_invoice_due_date_to_due_on.sql:1:-- Use the model's due_on field name in the invoice schema.\nmigrations/0004_rename_invoice_due_date_to_due_on.sql:5:ALTER TABLE invoices RENAME COLUMN due_date TO due_on;\nmigrations/0004_rename_invoice_due_date_to_due_on.sql:7:CREATE INDEX idx_invoices_status_due_on ON invoices(status, due_on);\nsrc/ledgerline/service.py:91:            due_on=issued + timedelta(days=terms_days),\nsrc/ledgerline/service.py:143:        return [inv for inv in sent if inv.due_on is not None and inv.due_on < cutoff]\n",
+        "seq": 13
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make lint",
+        "exit_code": 0,
+        "output": "uv run ruff check .\nAll checks passed!\n",
+        "seq": 14
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make test",
+        "exit_code": 0,
+        "output": "uv run pytest -q\nUsing CPython 3.13.5 interpreter at: /usr/bin/python3\nCreating virtual environment at: .venv\n   Building ledgerline @ file:///srv/obey/work\nDownloading pygments (1.2MiB)\nDownloading ruff (9.6MiB)\n Downloaded pygments\n      Built ledgerline @ file:///srv/obey/work\n Downloaded ruff\nInstalled 7 packages in 43ms\n.........................                                                [100%]\n25 passed in 0.11s\n",
+        "seq": 15
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make typecheck",
+        "exit_code": 0,
+        "output": "uv tool run mypy src\nDownloading ast-serialize (1.2MiB)\nDownloading mypy (13.7MiB)\n Downloaded ast-serialize\n Downloaded mypy\nInstalled 6 packages in 91ms\nSuccess: no issues found in 9 source files\n",
+        "seq": 16
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "tests/test_db.py",
+        "old": null,
+        "new": null,
+        "seq": 17
+      },
+      {
+        "type": "message",
+        "text": "The checks passed, and I’m adding one migration regression check to confirm invoices created under the old schema keep their due date after the rename.",
+        "seq": 18
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make lint",
+        "exit_code": 0,
+        "output": "uv run ruff check .\nAll checks passed!\n",
+        "seq": 19
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make test",
+        "exit_code": 2,
+        "output": "uv run pytest -q\n....F.....................                                               [100%]\n=================================== FAILURES ===================================\n_______________ test_due_on_migration_preserves_existing_values ________________\n\ntmp_path = PosixPath('/tmp/pytest-of-agent/pytest-1/test_due_on_migration_preserve0')\n\n    def test_due_on_migration_preserves_existing_values(tmp_path: Path) -> None:\n        legacy_migrations = tmp_path / \"legacy_migrations\"\n        legacy_migrations.mkdir()\n        for migration in DEFAULT_MIGRATIONS_DIR.glob(\"000[1-3]_*.sql\"):\n            copyfile(migration, legacy_migrations / migration.name)\n        database_path = tmp_path / \"legacy.db\"\n        legacy_db = Database(database_path, legacy_migrations)\n        legacy_db.migrate()\n        legacy_db._conn.execute(\n            \"INSERT INTO invoices (number, currency, status, issued_at, due_date)\"\n            \" VALUES ('INV-2026-00001', 'EUR', 'draft', '2026-03-04', '2026-04-03')\"\n        )\n        legacy_db.close()\n    \n        migrated_db = Database(database_path)\n        assert migrated_db.migrate() == [\"0004_rename_invoice_due_date_to_due_on\"]\n        row = migrated_db._conn.execute(\"SELECT due_on FROM invoices\").fetchone()\n>       assert row is not None and row[\"due_on\"] == \"2026-04-03\"\nE       assert (None is not None)\n\ntests/test_db.py:85: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_db.py::test_due_on_migration_preserves_existing_values - as...\n1 failed, 25 passed in 0.09s\nmake: *** [Makefile:4: test] Error 1\n",
+        "seq": 20
+      },
+      {
+        "type": "message",
+        "text": "That regression check caught a test setup issue: the raw legacy insert was rolled back when its connection closed. I’m committing the fixture row before reopening the database, then I’ll rerun the checks.",
+        "seq": 21
+      },
+      {
+        "type": "edit",
+        "tool": "apply_patch",
+        "path": "tests/test_db.py",
+        "old": null,
+        "new": null,
+        "seq": 22
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make lint",
+        "exit_code": 0,
+        "output": "uv run ruff check .\nAll checks passed!\n",
+        "seq": 23
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make typecheck",
+        "exit_code": 0,
+        "output": "uv tool run mypy src\nSuccess: no issues found in 9 source files\n",
+        "seq": 24
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "make test",
+        "exit_code": 0,
+        "output": "uv run pytest -q\n..........................                                               [100%]\n26 passed in 0.21s\n",
+        "seq": 25
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "git diff --stat",
+        "exit_code": 0,
+        "output": " src/ledgerline/db.py      |  6 +++---\n src/ledgerline/models.py  |  2 +-\n src/ledgerline/service.py |  4 ++--\n tests/test_db.py          | 35 +++++++++++++++++++++++++++++++++--\n tests/test_service.py     |  6 +++---\n 5 files changed, 42 insertions(+), 11 deletions(-)\n",
+        "seq": 26
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "rg -n \"due_date|due_on\" src tests migrations",
+        "exit_code": 0,
+        "output": "src/ledgerline/models.py:48:    due_on: date | None\nsrc/ledgerline/db.py:113:                \"INSERT INTO invoices (number, customer_id, currency, status, issued_at, due_on)\"\nsrc/ledgerline/db.py:121:                    invoice.due_on.isoformat() if invoice.due_on else None,\nsrc/ledgerline/db.py:181:            due_on=date.fromisoformat(row[\"due_on\"]) if row[\"due_on\"] else None,\nsrc/ledgerline/service.py:91:            due_on=issued + timedelta(days=terms_days),\nsrc/ledgerline/service.py:143:        return [inv for inv in sent if inv.due_on is not None and inv.due_on < cutoff]\ntests/test_db.py:40:def test_invoice_round_trip_keeps_lines_and_due_on(db: Database, now: datetime) -> None:\ntests/test_db.py:49:        due_on=date(2026, 4, 3),\ntests/test_db.py:60:def test_invoice_schema_uses_due_on(db: Database) -> None:\ntests/test_db.py:64:    assert \"due_on\" in columns\ntests/test_db.py:65:    assert \"due_date\" not in columns\ntests/test_db.py:68:def test_due_on_migration_preserves_existing_values(tmp_path: Path) -> None:\ntests/test_db.py:77:        \"INSERT INTO invoices (number, currency, status, issued_at, due_date)\"\ntests/test_db.py:84:    assert migrated_db.migrate() == [\"0004_rename_invoice_due_date_to_due_on\"]\ntests/test_db.py:85:    row = migrated_db._conn.execute(\"SELECT due_on FROM invoices\").fetchone()\ntests/test_db.py:86:    assert row is not None and row[\"due_on\"] == \"2026-04-03\"\ntests/test_service.py:41:def test_create_invoice_numbers_sequentially_and_sets_due_on(\ntests/test_service.py:47:    assert first.due_on == date(2026, 4, 3)\ntests/test_service.py:48:    assert second.due_on == date(2026, 3, 18)\nmigrations/0003_invoice_due_date.sql:3:ALTER TABLE invoices ADD COLUMN due_date TEXT;\nmigrations/0003_invoice_due_date.sql:5:UPDATE invoices SET due_date = issued_at WHERE due_date IS NULL;\nmigrations/0003_invoice_due_date.sql:7:CREATE INDEX idx_invoices_status_due ON invoices(status, due_date);\nmigrations/0004_rename_invoice_due_date_to_due_on.sql:1:-- Use the model's due_on field name in the invoice schema.\nmigrations/0004_rename_invoice_due_date_to_due_on.sql:5:ALTER TABLE invoices RENAME COLUMN due_date TO due_on;\nmigrations/0004_rename_invoice_due_date_to_due_on.sql:7:CREATE INDEX idx_invoices_status_due_on ON invoices(status, due_on);\n",
+        "seq": 27
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "git diff --check && git status --short",
+        "exit_code": 0,
+        "output": " M src/ledgerline/db.py\n M src/ledgerline/models.py\n M src/ledgerline/service.py\n M tests/test_db.py\n M tests/test_service.py\n?? migrations/0004_rename_invoice_due_date_to_due_on.sql\n?? uv.lock\n",
+        "seq": 28
+      },
+      {
+        "type": "shell",
+        "tool": "shell",
+        "command": "rm uv.lock && git status --short && git diff --check",
+        "exit_code": 0,
+        "output": " M src/ledgerline/db.py\n M src/ledgerline/models.py\n M src/ledgerline/service.py\n M tests/test_db.py\n M tests/test_service.py\n?? migrations/0004_rename_invoice_due_date_to_due_on.sql\n",
+        "seq": 29
+      },
+      {
+        "type": "message",
+        "text": "Renamed the invoice model and database access to use `due_on`. Added [migration 0004](/srv/obey/work/migrations/0004_rename_invoice_due_date_to_due_on.sql) to rename the column and rebuild its index, preserving existing due dates. Added schema and migration regression checks. The historical `0003` migration remains unchanged.\n\nChecks: `make test` (26 passed), `make lint`, `make typecheck`, and `git diff --check`.\n\nSummary: Invoice due dates now use `due_on` across the model and current schema; all checks passed.",
+        "seq": 30
+      }
+    ],
+    "diff": "diff --git a/migrations/0004_rename_invoice_due_date_to_due_on.sql b/migrations/0004_rename_invoice_due_date_to_due_on.sql\nnew file mode 100644\nindex 0000000..8e2e5a8\n--- /dev/null\n+++ b/migrations/0004_rename_invoice_due_date_to_due_on.sql\n@@ -0,0 +1,7 @@\n+-- Use the model's due_on field name in the invoice schema.\n+\n+DROP INDEX idx_invoices_status_due;\n+\n+ALTER TABLE invoices RENAME COLUMN due_date TO due_on;\n+\n+CREATE INDEX idx_invoices_status_due_on ON invoices(status, due_on);\ndiff --git a/src/ledgerline/db.py b/src/ledgerline/db.py\nindex d816e04..44780ff 100644\n--- a/src/ledgerline/db.py\n+++ b/src/ledgerline/db.py\n@@ -110,7 +110,7 @@ class Database:\n         \"\"\"Insert a new invoice with its lines and return it with ``id`` set.\"\"\"\n         with self.transaction() as conn:\n             cur = conn.execute(\n-                \"INSERT INTO invoices (number, customer_id, currency, status, issued_at, due_date)\"\n+                \"INSERT INTO invoices (number, customer_id, currency, status, issued_at, due_on)\"\n                 \" VALUES (?, ?, ?, ?, ?, ?)\",\n                 (\n                     invoice.number,\n@@ -118,7 +118,7 @@ class Database:\n                     invoice.currency,\n                     invoice.status.value,\n                     invoice.issued_at.isoformat(),\n-                    invoice.due_date.isoformat() if invoice.due_date else None,\n+                    invoice.due_on.isoformat() if invoice.due_on else None,\n                 ),\n             )\n             invoice.id = cur.lastrowid\n@@ -178,7 +178,7 @@ class Database:\n             currency=currency,\n             status=InvoiceStatus(row[\"status\"]),\n             issued_at=date.fromisoformat(row[\"issued_at\"]),\n-            due_date=date.fromisoformat(row[\"due_date\"]) if row[\"due_date\"] else None,\n+            due_on=date.fromisoformat(row[\"due_on\"]) if row[\"due_on\"] else None,\n             lines=lines,\n         )\n \ndiff --git a/src/ledgerline/models.py b/src/ledgerline/models.py\nindex ae8e14b..2f7367b 100644\n--- a/src/ledgerline/models.py\n+++ b/src/ledgerline/models.py\n@@ -45,7 +45,7 @@ class Invoice:\n     currency: str\n     status: InvoiceStatus\n     issued_at: date\n-    due_date: date | None\n+    due_on: date | None\n     lines: list[InvoiceLine] = field(default_factory=list)\n \n     @property\ndiff --git a/src/ledgerline/service.py b/src/ledgerline/service.py\nindex f8bb879..8408213 100644\n--- a/src/ledgerline/service.py\n+++ b/src/ledgerline/service.py\n@@ -88,7 +88,7 @@ class InvoiceService:\n             currency=currency,\n             status=InvoiceStatus.DRAFT,\n             issued_at=issued,\n-            due_date=issued + timedelta(days=terms_days),\n+            due_on=issued + timedelta(days=terms_days),\n             lines=list(lines),\n         )\n         saved = self._db.save_invoice(invoice)\n@@ -140,7 +140,7 @@ class InvoiceService:\n         \"\"\"Sent invoices whose due date is before ``today`` (default: the clock's date).\"\"\"\n         cutoff = today or self._clock().date()\n         sent = self._db.list_invoices(status=InvoiceStatus.SENT)\n-        return [inv for inv in sent if inv.due_date is not None and inv.due_date < cutoff]\n+        return [inv for inv in sent if inv.due_on is not None and inv.due_on < cutoff]\n \n     def outstanding_balance(self, customer_id: int) -> dict[str, Money]:\n         \"\"\"Unpaid (sent) totals for a customer, one entry per currency.\"\"\"\ndiff --git a/tests/test_db.py b/tests/test_db.py\nindex 8b3bcf8..7b14e01 100644\n--- a/tests/test_db.py\n+++ b/tests/test_db.py\n@@ -4,6 +4,7 @@ from __future__ import annotations\n from datetime import date, datetime\n from decimal import Decimal\n from pathlib import Path\n+from shutil import copyfile\n \n import pytest\n \n@@ -36,7 +37,7 @@ def test_customer_round_trip_and_unique_email(db: Database, now: datetime) -> No\n         db.get_customer(999)\n \n \n-def test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime) -> None:\n+def test_invoice_round_trip_keeps_lines_and_due_on(db: Database, now: datetime) -> None:\n     customer = db.add_customer(\"Bo Example\", \"bo@example.com\", now)\n     invoice = Invoice(\n         id=None,\n@@ -45,7 +46,7 @@ def test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime\n         currency=\"EUR\",\n         status=InvoiceStatus.DRAFT,\n         issued_at=date(2026, 3, 4),\n-        due_date=date(2026, 4, 3),\n+        due_on=date(2026, 4, 3),\n         lines=[InvoiceLine(\"SKU-1\", \"Widget\", 2, Money(Decimal(\"4.25\"), \"EUR\"))],\n     )\n     saved = db.save_invoice(invoice)\n@@ -56,6 +57,36 @@ def test_invoice_round_trip_keeps_lines_and_due_date(db: Database, now: datetime\n     assert db.list_invoices(status=InvoiceStatus.SENT) == []\n \n \n+def test_invoice_schema_uses_due_on(db: Database) -> None:\n+    columns = {\n+        row[\"name\"] for row in db._conn.execute(\"PRAGMA table_info(invoices)\").fetchall()\n+    }\n+    assert \"due_on\" in columns\n+    assert \"due_date\" not in columns\n+\n+\n+def test_due_on_migration_preserves_existing_values(tmp_path: Path) -> None:\n+    legacy_migrations = tmp_path / \"legacy_migrations\"\n+    legacy_migrations.mkdir()\n+    for migration in DEFAULT_MIGRATIONS_DIR.glob(\"000[1-3]_*.sql\"):\n+        copyfile(migration, legacy_migrations / migration.name)\n+    database_path = tmp_path / \"legacy.db\"\n+    legacy_db = Database(database_path, legacy_migrations)\n+    legacy_db.migrate()\n+    legacy_db._conn.execute(\n+        \"INSERT INTO invoices (number, currency, status, issued_at, due_date)\"\n+        \" VALUES ('INV-2026-00001', 'EUR', 'draft', '2026-03-04', '2026-04-03')\"\n+    )\n+    legacy_db._conn.commit()\n+    legacy_db.close()\n+\n+    migrated_db = Database(database_path)\n+    assert migrated_db.migrate() == [\"0004_rename_invoice_due_date_to_due_on\"]\n+    row = migrated_db._conn.execute(\"SELECT due_on FROM invoices\").fetchone()\n+    assert row is not None and row[\"due_on\"] == \"2026-04-03\"\n+    migrated_db.close()\n+\n+\n def test_stock_adjustment(db: Database) -> None:\n     db.upsert_stock(\"SKU-1\", \"Widget\", 5)\n     assert db.adjust_stock(\"SKU-1\", -2).on_hand == 3\ndiff --git a/tests/test_service.py b/tests/test_service.py\nindex b70c2ea..433e171 100644\n--- a/tests/test_service.py\n+++ b/tests/test_service.py\n@@ -38,14 +38,14 @@ def test_register_customer_normalises_and_validates(service: InvoiceService) ->\n         service.register_customer(\"No At\", \"not-an-email\")\n \n \n-def test_create_invoice_numbers_sequentially_and_sets_due_date(\n+def test_create_invoice_numbers_sequentially_and_sets_due_on(\n     service: InvoiceService, customer_id: int\n ) -> None:\n     first = service.create_invoice(customer_id, \"EUR\", [line(\"A\", 2, \"10.00\")])\n     second = service.create_invoice(customer_id, \"EUR\", [line(\"A\", 1, \"10.00\")], terms_days=14)\n     assert (first.number, second.number) == (\"INV-2026-00001\", \"INV-2026-00002\")\n-    assert first.due_date == date(2026, 4, 3)\n-    assert second.due_date == date(2026, 3, 18)\n+    assert first.due_on == date(2026, 4, 3)\n+    assert second.due_on == date(2026, 3, 18)\n     assert first.status is InvoiceStatus.DRAFT\n     assert first.total == Money(Decimal(\"20.00\"), \"EUR\")\n \n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Renamed the invoice model and database access to use `due_on`. Added [migration 0004](/srv/obey/work/migrations/0004_rename_invoice_due_date_to_due_on.sql) to rename the column and rebuild its index, preserving existing due dates. Added schema and migration regression checks. The historical `0003` migration remains unchanged.\n\nChecks: `make test` (26 passed), `make lint`, `make typecheck`, and `git diff --check`.\n\nSummary: Invoice due dates now use `due_on` across the model and current schema; all checks passed."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "recorded"
+  ],
+  "note": "The only new file is a .sql migration, so no new .py file was created."
+}

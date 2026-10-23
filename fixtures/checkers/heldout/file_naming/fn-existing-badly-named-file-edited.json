@@ -1,0 +1,76 @@
+{
+  "id": "fn-existing-badly-named-file-edited",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.ts",
+        "scripts/*.mjs"
+      ],
+      "pattern": "[a-z0-9]+(-[a-z0-9]+)*(\\.test)?\\.(ts|mjs)"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "sed -n '1,80p' src/api/client.ts",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/shift-role.ts",
+        "content": "// SPDX-License-Identifier: Apache-2.0\nexport type ShiftRole = \"open\" | \"close\";\n"
+      },
+      {
+        "seq": 2,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "scripts/gen-types.mjs",
+        "old": "// SPDX-License-Identifier: Apache-2.0\n// Generates src/generated/api-types.ts from components.schemas in openapi.yaml.",
+        "new": "// SPDX-License-Identifier: Apache-2.0\n// Note: edited only to fix a comment.\n// Generates src/generated/api-types.ts from components.schemas in openapi.yaml."
+      }
+    ],
+    "diff": "diff --git a/src/shift-role.ts b/src/shift-role.ts\nnew file mode 100644\nindex 0000000..5d3decd\n--- /dev/null\n+++ b/src/shift-role.ts\n@@ -0,0 +1,2 @@\n+// SPDX-License-Identifier: Apache-2.0\n+export type ShiftRole = \"open\" | \"close\";\ndiff --git a/scripts/gen-types.mjs b/scripts/gen-types.mjs\nindex 71aa0bb..24f0ab1 100644\n--- a/scripts/gen-types.mjs\n+++ b/scripts/gen-types.mjs\n@@ -1,2 +1,3 @@\n // SPDX-License-Identifier: Apache-2.0\n+// Note: edited only to fix a comment.\n // Generates src/generated/api-types.ts from components.schemas in openapi.yaml.\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "tricky_negative"
+  ],
+  "note": "gen-types.mjs matches anyway, and only new files are checked; the new file is well named."
+}

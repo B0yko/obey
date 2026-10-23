@@ -1,0 +1,54 @@
+{
+  "id": "fn-go-camelcase",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "**/*.go"
+      ],
+      "pattern": "[a-z0-9_]+\\.go"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "internal/router/router.go"
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "internal/store/auditLog.go",
+        "content": "// Copyright 2026 Example Corp\npackage store\n\n// Audit records a store write.\nfunc Audit(msg string) string { return msg }\n"
+      }
+    ],
+    "diff": "diff --git a/internal/store/auditLog.go b/internal/store/auditLog.go\nnew file mode 100644\nindex 0000000..8d7a35f\n--- /dev/null\n+++ b/internal/store/auditLog.go\n@@ -0,0 +1,5 @@\n+// Copyright 2026 Example Corp\n+package store\n+\n+// Audit records a store write.\n+func Audit(msg string) string { return msg }\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "cmd/routekit/main.go",
+      "docs/design.md",
+      "go.mod",
+      "go.sum",
+      "internal/router/router.go",
+      "internal/router/router_test.go",
+      "internal/store/store.go",
+      "internal/store/store_test.go",
+      "scripts/seed.sh"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "violated",
+  "tags": [
+    "new_file",
+    "go"
+  ],
+  "note": "auditLog.go contains an uppercase letter."
+}

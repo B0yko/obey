@@ -1,0 +1,64 @@
+{
+  "id": "fn-py-snake-new",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.py",
+        "tests/**/*.py"
+      ],
+      "pattern": "[a-z_][a-z0-9_]*\\.py"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "README.md"
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/ledgerline/report_builder.py",
+        "content": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Report helpers.\"\"\"\n"
+      }
+    ],
+    "diff": "diff --git a/src/ledgerline/report_builder.py b/src/ledgerline/report_builder.py\nnew file mode 100644\nindex 0000000..6fee106\n--- /dev/null\n+++ b/src/ledgerline/report_builder.py\n@@ -0,0 +1,2 @@\n+# SPDX-License-Identifier: Apache-2.0\n+\"\"\"Report helpers.\"\"\"\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "new_file"
+  ],
+  "note": "report_builder.py is snake_case."
+}

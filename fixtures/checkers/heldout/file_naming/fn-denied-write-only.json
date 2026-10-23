@@ -1,0 +1,66 @@
+{
+  "id": "fn-denied-write-only",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.ts"
+      ],
+      "pattern": "[a-z0-9]+(-[a-z0-9]+)*(\\.test)?\\.ts"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/render-table.ts"
+      },
+      {
+        "seq": 1,
+        "type": "denied",
+        "tool": "Write",
+        "detail": "Write src/ShiftRole.ts denied: file names must follow the naming convention",
+        "rule_id": "file-naming-a8d3e5",
+        "source": "hook"
+      }
+    ],
+    "diff": "",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "denied"
+  ],
+  "note": "The only Write was denied and the diff is empty."
+}

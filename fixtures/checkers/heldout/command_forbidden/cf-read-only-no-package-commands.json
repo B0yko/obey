@@ -1,0 +1,86 @@
+{
+  "id": "cf-read-only-no-package-commands",
+  "rule": {
+    "type": "command_forbidden",
+    "params": {
+      "patterns": [
+        "^npm (install|i|add|ci|uninstall|remove|rm|update)\\b"
+      ],
+      "preferred": "pnpm",
+      "preferred_patterns": [
+        "^pnpm (install|i|add|remove|rm|update|up)\\b"
+      ],
+      "manual_edit_paths": [
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/render-table.ts"
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "git log --oneline | head -5",
+        "exit_code": 0,
+        "output": "4be1c0a docs: readme"
+      },
+      {
+        "seq": 3,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/logger.ts"
+      }
+    ],
+    "diff": "",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "not_exercised",
+  "tags": [],
+  "note": "No package-manager command ran and no manifest changed, so the rule was not exercised."
+}

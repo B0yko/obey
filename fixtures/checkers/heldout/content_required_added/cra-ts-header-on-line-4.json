@@ -1,0 +1,70 @@
+{
+  "id": "cra-ts-header-on-line-4",
+  "rule": {
+    "type": "content_required_added",
+    "params": {
+      "regex": "SPDX-License-Identifier: Apache-2\\.0",
+      "globs": [
+        "src/**/*.ts",
+        "scripts/*.mjs"
+      ],
+      "scope": "new_files",
+      "first_lines": 3
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "cat package.json",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/shift-role.ts",
+        "content": "/**\n * Shift roles.\n */\n// SPDX-License-Identifier: Apache-2.0\nexport type ShiftRole = \"open\" | \"close\";\n\nexport function isOpening(role: ShiftRole): boolean {\n  return role === \"open\";\n}\n"
+      }
+    ],
+    "diff": "diff --git a/src/shift-role.ts b/src/shift-role.ts\nnew file mode 100644\nindex 0000000..5d3decd\n--- /dev/null\n+++ b/src/shift-role.ts\n@@ -0,0 +1,9 @@\n+/**\n+ * Shift roles.\n+ */\n+// SPDX-License-Identifier: Apache-2.0\n+export type ShiftRole = \"open\" | \"close\";\n+\n+export function isOpening(role: ShiftRole): boolean {\n+  return role === \"open\";\n+}\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "violated",
+  "tags": [
+    "first_lines"
+  ],
+  "note": "first_lines is 3 and the header is on line 4."
+}

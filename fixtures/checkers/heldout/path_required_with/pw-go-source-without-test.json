@@ -1,0 +1,64 @@
+{
+  "id": "pw-go-source-without-test",
+  "rule": {
+    "type": "path_required_with",
+    "params": {
+      "when": [
+        "internal/**/*.go"
+      ],
+      "require": [
+        "internal/**/*_test.go"
+      ]
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "internal/store/store.go"
+      },
+      {
+        "seq": 1,
+        "type": "edit",
+        "tool": "Edit",
+        "path": "internal/router/router.go",
+        "old": "\nfunc health(w http.ResponseWriter, _ *http.Request) {\n\tw.WriteHeader(http.StatusOK)\n\t_, _ = w.Write([]byte(\"ok\"))\n}\n\nfunc listRoutes(w http.ResponseWriter, _ *http.Request) {",
+        "new": "\nfunc health(w http.ResponseWriter, _ *http.Request) {\n\tw.WriteHeader(http.StatusOK)\n\t_, _ = w.Write([]byte(\"ok\\n\"))\n}\n\nfunc listRoutes(w http.ResponseWriter, _ *http.Request) {"
+      },
+      {
+        "seq": 2,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "go build ./...",
+        "exit_code": 0,
+        "output": ""
+      }
+    ],
+    "diff": "diff --git a/internal/router/router.go b/internal/router/router.go\nindex d586615..17719d1 100644\n--- a/internal/router/router.go\n+++ b/internal/router/router.go\n@@ -17,7 +17,7 @@\n \n func health(w http.ResponseWriter, _ *http.Request) {\n \tw.WriteHeader(http.StatusOK)\n-\t_, _ = w.Write([]byte(\"ok\"))\n+\t_, _ = w.Write([]byte(\"ok\\n\"))\n }\n \n func listRoutes(w http.ResponseWriter, _ *http.Request) {\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "cmd/routekit/main.go",
+      "docs/design.md",
+      "go.mod",
+      "go.sum",
+      "internal/router/router.go",
+      "internal/router/router_test.go",
+      "internal/store/store.go",
+      "internal/store/store_test.go",
+      "scripts/seed.sh"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "violated",
+  "tags": [
+    "go"
+  ],
+  "note": "internal/router/router.go changed and no *_test.go file changed."
+}

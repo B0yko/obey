@@ -1,0 +1,71 @@
+{
+  "id": "cra-mjs-new-no-header",
+  "rule": {
+    "type": "content_required_added",
+    "params": {
+      "regex": "SPDX-License-Identifier: Apache-2\\.0",
+      "globs": [
+        "src/**/*.ts",
+        "scripts/*.mjs"
+      ],
+      "scope": "new_files",
+      "first_lines": 3
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "ls src",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "scripts/seed-demo.mjs",
+        "content": "import { writeFileSync } from \"node:fs\";\n\nwriteFileSync(\"demo.json\", \"{}\\n\");\n"
+      }
+    ],
+    "diff": "diff --git a/scripts/seed-demo.mjs b/scripts/seed-demo.mjs\nnew file mode 100644\nindex 0000000..96c4936\n--- /dev/null\n+++ b/scripts/seed-demo.mjs\n@@ -0,0 +1,3 @@\n+import { writeFileSync } from \"node:fs\";\n+\n+writeFileSync(\"demo.json\", \"{}\\n\");\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Finished. I kept the diff small and followed the conventions in AGENTS.md.\n\nSummary: Change implemented; checks pass."
+  },
+  "expected": "violated",
+  "tags": [
+    "new_file",
+    "glob"
+  ],
+  "note": "The new .mjs script under scripts/ is covered by the globs and has no header."
+}

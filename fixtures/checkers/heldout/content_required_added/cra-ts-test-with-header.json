@@ -1,0 +1,68 @@
+{
+  "id": "cra-ts-test-with-header",
+  "rule": {
+    "type": "content_required_added",
+    "params": {
+      "regex": "SPDX-License-Identifier: Apache-2\\.0",
+      "globs": [
+        "src/**/*.ts",
+        "scripts/*.mjs"
+      ],
+      "scope": "new_files",
+      "first_lines": 3
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "src/logger.ts"
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/shift-role.test.ts",
+        "content": "// SPDX-License-Identifier: Apache-2.0\nimport { describe, expect, it } from \"vitest\";\nimport { isOpening } from \"./shift-role.js\";\n\ndescribe(\"isOpening\", () => {\n  it(\"is true for open\", () => {\n    expect(isOpening(\"open\")).toBe(true);\n  });\n});\n"
+      }
+    ],
+    "diff": "diff --git a/src/shift-role.test.ts b/src/shift-role.test.ts\nnew file mode 100644\nindex 0000000..9c63733\n--- /dev/null\n+++ b/src/shift-role.test.ts\n@@ -0,0 +1,9 @@\n+// SPDX-License-Identifier: Apache-2.0\n+import { describe, expect, it } from \"vitest\";\n+import { isOpening } from \"./shift-role.js\";\n+\n+describe(\"isOpening\", () => {\n+  it(\"is true for open\", () => {\n+    expect(isOpening(\"open\")).toBe(true);\n+  });\n+});\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "obeyed",
+  "tags": [
+    "new_file"
+  ],
+  "note": "The new test file under src/ has the header on line 1."
+}

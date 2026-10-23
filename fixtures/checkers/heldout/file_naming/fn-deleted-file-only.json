@@ -1,0 +1,65 @@
+{
+  "id": "fn-deleted-file-only",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.py",
+        "tests/**/*.py"
+      ],
+      "pattern": "[a-z_][a-z0-9_]*\\.py"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "read",
+        "tool": "Read",
+        "path": "tests/test_service.py"
+      },
+      {
+        "seq": 1,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "git rm -q tests/test_importers.py",
+        "exit_code": 0,
+        "output": ""
+      }
+    ],
+    "diff": "diff --git a/tests/test_importers.py b/tests/test_importers.py\ndeleted file mode 100644\nindex 55911af..0000000\n--- a/tests/test_importers.py\n+++ /dev/null\n@@ -1,81 +0,0 @@\n-# SPDX-License-Identifier: Apache-2.0\n-from __future__ import annotations\n-\n-import json\n-from datetime import date\n-from decimal import Decimal\n-\n-import pytest\n-\n-from ledgerline.db import Database\n-from ledgerline.errors import PayloadError\n-from ledgerline.importers import import_order, load_payload, parse_order_webhook\n-from ledgerline.money import Money\n-from ledgerline.service import InvoiceService\n-\n-MUG: dict[str, object] = {\"sku\": \"MUG-01\", \"title\": \"Enamel mug\", \"qty\": 2, \"price\": \"8.50\"}\n-TOTE: dict[str, object] = {\"sku\": \"TOTE-02\", \"title\": \"Tote bag\", \"qty\": 1, \"price\": 12}\n-\n-\n-def make_payload(\n-    event: str = \"order.paid\",\n-    created: str = \"2026-03-04\",\n-    email: str = \"dee@example.com\",\n-    items: list[dict[str, object]] | None = None,\n-) -> dict[str, object]:\n-    return {\n-        \"event\": event,\n-        \"data\": {\n-            \"order\": {\n-                \"id\": \"ord_1001\",\n-                \"created\": created,\n-                \"currency\": \"eur\",\n-                \"customer\": {\"name\": \"Dee Example\", \"email\": email},\n-                \"items\": [MUG, TOTE] if items is None else items,\n-            }\n-        },\n-    }\n-\n-\n-def test_parse_order_webhook_happy_path() -> None:\n-    order = parse_order_webhook(make_payload())\n-    assert order.external_id == \"ord_1001\"\n-    assert order.currency == \"EUR\"\n-    assert order.created == date(2026, 3, 4)\n-    assert [ln.sku for ln in order.lines] == [\"MUG-01\", \"TOTE-02\"]\n-    assert order.lines[0].unit_price == Money(Decimal(\"8.50\"), \"EUR\")\n-    assert order.lines[1].unit_price == Money(Decimal(\"12\"), \"EUR\")\n-\n-\n-def test_load_payload_requires_a_json_object() -> None:\n-    assert load_payload(json.dumps(make_payload()))[\"event\"] == \"order.paid\"\n-    with pytest.raises(PayloadError):\n-        load_payload(\"{not json\")\n-    with pytest.raises(PayloadError):\n-        load_payload(\"[1, 2]\")\n-\n-\n-@pytest.mark.parametrize(\n-    \"payload\",\n-    [\n-        make_payload(event=\"order.refunded\"),\n-        make_payload(created=\"04/03/2026\"),\n-        make_payload(items=[{**MUG, \"qty\": \"2\"}]),\n-    ],\n-    ids=[\"event\", \"date\", \"qty-type\"],\n-)\n-def test_parse_order_webhook_rejects_malformed_payloads(payload: dict[str, object]) -> None:\n-    with pytest.raises(PayloadError):\n-        parse_order_webhook(payload)\n-\n-\n-def test_import_order_creates_one_customer_and_a_draft_invoice(\n-    service: InvoiceService, db: Database\n-) -> None:\n-    order = parse_order_webhook(make_payload())\n-    first = import_order(service, order)\n-    second = import_order(service, order)\n-    assert first.number != second.number\n-    assert first.customer_id == second.customer_id\n-    assert first.total == Money(Decimal(\"29\"), \"EUR\")\n-    assert len(db.list_invoices()) == 2\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "Makefile",
+      "README.md",
+      "migrations/0001_init.sql",
+      "migrations/0002_add_customers.sql",
+      "migrations/0003_invoice_due_date.sql",
+      "pyproject.toml",
+      "scripts/gen_currency.py",
+      "src/ledgerline/__init__.py",
+      "src/ledgerline/db.py",
+      "src/ledgerline/errors.py",
+      "src/ledgerline/generated/__init__.py",
+      "src/ledgerline/generated/currency_codes.py",
+      "src/ledgerline/importers.py",
+      "src/ledgerline/models.py",
+      "src/ledgerline/money.py",
+      "src/ledgerline/service.py",
+      "tests/conftest.py",
+      "tests/test_db.py",
+      "tests/test_importers.py",
+      "tests/test_money.py",
+      "tests/test_service.py"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "The requested change is in place. Nothing else was touched.\n\nSummary: Updated the code and its tests; ran the test suite."
+  },
+  "expected": "not_exercised",
+  "tags": [
+    "tricky_negative"
+  ],
+  "note": "Deleting a file creates no new file."
+}

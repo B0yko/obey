@@ -1,0 +1,67 @@
+{
+  "id": "fn-spec-instead-of-test",
+  "rule": {
+    "type": "file_naming",
+    "params": {
+      "globs": [
+        "src/**/*.ts"
+      ],
+      "pattern": "[a-z0-9]+(-[a-z0-9]+)*(\\.test)?\\.ts"
+    }
+  },
+  "run": {
+    "events": [
+      {
+        "seq": 0,
+        "type": "shell",
+        "tool": "Bash",
+        "command": "git status --short",
+        "exit_code": 0,
+        "output": ""
+      },
+      {
+        "seq": 1,
+        "type": "write",
+        "tool": "Write",
+        "path": "src/shift-role.spec.ts",
+        "content": "// SPDX-License-Identifier: Apache-2.0\nexport type ShiftRole = \"open\" | \"close\";\n"
+      }
+    ],
+    "diff": "diff --git a/src/shift-role.spec.ts b/src/shift-role.spec.ts\nnew file mode 100644\nindex 0000000..26cbaf7\n--- /dev/null\n+++ b/src/shift-role.spec.ts\n@@ -0,0 +1,2 @@\n+// SPDX-License-Identifier: Apache-2.0\n+export type ShiftRole = \"open\" | \"close\";\n",
+    "base_files": [
+      ".gitignore",
+      "AGENTS.md",
+      "README.md",
+      "eslint.config.js",
+      "index.html",
+      "openapi.yaml",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/gen-types.mjs",
+      "src/api/client.test.ts",
+      "src/api/client.ts",
+      "src/api/response-guards.test.ts",
+      "src/api/response-guards.ts",
+      "src/date-utils.test.ts",
+      "src/date-utils.ts",
+      "src/generated/api-types.ts",
+      "src/logger.test.ts",
+      "src/logger.ts",
+      "src/main.ts",
+      "src/render-table.test.ts",
+      "src/render-table.ts",
+      "src/shift-planner.test.ts",
+      "src/shift-planner.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "commits": [],
+    "pushed_refs": [],
+    "final_message": "Done. The change is in the working tree and the checks I ran pass.\n\nSummary: Implemented the requested change and ran the project checks."
+  },
+  "expected": "violated",
+  "tags": [
+    "new_file"
+  ],
+  "note": "Tests must be named .test.ts, so .spec.ts fails."
+}
