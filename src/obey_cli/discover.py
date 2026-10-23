@@ -185,7 +185,8 @@ def discover(root: Path, include_local: bool = False) -> list[InstructionFile]:
         )
         result.append(item)
         seen.add(rel)
-        if kind in ("claude_md", "claude_local_md"):
+        if kind in ("claude_md", "claude_local_md", "agents_md"):
+            # Claude Code expands @imports in CLAUDE.md and, when it reads AGENTS.md, in AGENTS.md too.
             result.extend(_resolve_imports(root, item, seen, depth=1))
     return result
 

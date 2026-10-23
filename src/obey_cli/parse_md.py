@@ -18,12 +18,23 @@ _STRONG_DIRECTIVE_RE = re.compile(
     r"required|forbidden|prohibited|not allowed|ensure|make sure|instead of|rather than)\b",
     re.IGNORECASE,
 )
-_IMPERATIVE_START_RE = re.compile(
-    r"^(use|run|add|keep|write|follow|put|name|commit|push|edit|modify|touch|change|prefer|avoid|never|"
-    r"always|do|don't|ensure|make|place|create|update|include|end|start|check|format|lint|test|type|import|"
-    r"install|document|log|return|wrap|ask|leave|treat|store|limit|stick|rely|mark|annotate|declare)\b",
+_IMPERATIVE_VERBS = (
+    r"use|run|add|keep|write|follow|put|name|commit|push|edit|modify|touch|change|prefer|avoid|never|always|do|don't|"
+    r"ensure|make|place|create|update|include|end|start|begin|check|import|install|"
+    r"log|return|wrap|ask|leave|treat|store|limit|stick|rely|mark|annotate|declare|be|plan|co-locate|colocate|"
+    r"mention|match|say|tell|reply|respond|split|move|delete|remove|rename|bump|pin|call|raise|"
+    r"handle|validate|escape|prefix|suffix|reuse|guard|mock|stub|skip|verify|confirm|cite"
+)
+_IMPERATIVE_START_RE = re.compile(rf"^({_IMPERATIVE_VERBS})\b", re.IGNORECASE)
+# "After changing Python files, run X." / "We review quickly, so keep changes small."
+_CLAUSE_IMPERATIVE_RE = re.compile(rf"(,|;|:|\bso|\bplease|\bthen)\s+({_IMPERATIVE_VERBS})\b", re.IGNORECASE)
+_NORMATIVE_RE = re.compile(
+    r"\b(needs? (approval|sign-?off|review|a test|tests|to be)|has no place|not welcome|(is|are) (banned|off-limits|"
+    r"required|mandatory|immutable|read-only)|(kebab|snake|pascal|camel)[- _]?case|(starts?|begins?|ends?) with|"
+    r"(is|are) named|names? (are|is|use))\b",
     re.IGNORECASE,
 )
+_LEADING_SYMBOLS_RE = re.compile(r"^[^\w`(\[\"']+")
 _FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 _LIST_RE = re.compile(r"^(\s*)(?:[-*+]|\d{1,3}[.)])\s+(?:\[[ xX]\]\s+)?(.*)$")
 _HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
@@ -34,7 +45,7 @@ _CODE_SPAN_RE = re.compile(r"`([^`]+)`")
 _EMPHASIS_RE = re.compile(r"(\*\*|__|\*|_)(\S(?:.*?\S)?)\1")
 _LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
-_IMPORT_RE = re.compile(r"(?:(?<=\s)|^)@((?:~/|\.{1,2}/|[\w])[\w./~-]*)")
+_IMPORT_RE = re.compile(r"(?:(?<=\s)|^)@((?:~/|\.{1,2}/|[\w])[\w./~-]*[\w/])")
 
 
 @dataclass
@@ -99,7 +110,13 @@ def plain(text: str) -> str:
 
 
 def is_directive(text: str) -> bool:
-    return bool(_STRONG_DIRECTIVE_RE.search(text) or _IMPERATIVE_START_RE.match(text.lstrip("*_`> ")))
+    bare = _LEADING_SYMBOLS_RE.sub("", text.strip())
+    return bool(
+        _STRONG_DIRECTIVE_RE.search(bare)
+        or _IMPERATIVE_START_RE.match(bare)
+        or _CLAUSE_IMPERATIVE_RE.search(bare)
+        or _NORMATIVE_RE.search(bare)
+    )
 
 
 def _blank_comments(text: str) -> str:
@@ -161,8 +178,19 @@ def parse(text: str) -> ParsedFile:
             flush_item()
             if not _TABLE_SEP_RE.match(line):
                 cells = [c.strip() for c in _TABLE_RE.match(line).group(1).split("|")]  # type: ignore[union-attr]
-                raw = " — ".join(c for c in cells if c)
-                _emit(raw, lineno, lineno, "table", [h for _, h in headings], candidates)
+                cells = [c for c in cells if c]
+                labels = [h for _, h in headings]
+                # A short first cell ("Errors", "Lint") is a label for the rule in the next cell.
+                first = plain(cells[0]) if cells else ""
+                if (
+                    len(cells) >= 2
+                    and len(first.split()) <= 3
+                    and not is_directive(first)
+                    and not first.lower().startswith(("no ", "not ", "only "))
+                ):
+                    labels = [*labels, plain(cells[0])]
+                    cells = cells[1:]
+                _emit(" — ".join(cells), lineno, lineno, "table", labels, candidates)
             continue
         listed = _LIST_RE.match(line)
         if listed:

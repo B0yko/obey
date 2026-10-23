@@ -10,4 +10,4 @@ messages, which is why the message format matters. The version number lives in
 - Never run `git push`; releases are pushed by CI after review.
 - Bump the version only when asked.
 
-@docs/agent/checklist.md
+@checklist.md

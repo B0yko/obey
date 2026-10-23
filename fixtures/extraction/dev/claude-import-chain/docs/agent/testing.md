@@ -10,4 +10,4 @@ and are normally run by CI.
 - Name test files `test_<module>.py`.
 - Tests must not call real network endpoints.
 
-Release rules are in @docs/agent/release.md.
+Release rules are in @release.md.

@@ -10,4 +10,4 @@ formatting nits are not worth discussing in review.
 - Name modules in snake_case, for example `retry_policy.py`.
 - Write comments that explain intent.
 
-Testing rules continue in @docs/agent/testing.md.
+Testing rules continue in @testing.md.
