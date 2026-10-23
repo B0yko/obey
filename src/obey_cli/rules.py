@@ -51,7 +51,9 @@ def build_config(
 ) -> tuple[dict[str, Any], list[InstructionFile]]:
     files = discover(root, include_local=include_local)
     items = extract(files, root)
-    fresh = [x.as_rule() for x in items] + [p.as_rule() for p in proposals]
+    # A proposal replaces the uncheckable rule it was made for (same text, so the same id).
+    proposed = {r["id"]: r for r in (p.as_rule() for p in proposals)}
+    fresh = [proposed.pop(r["id"], r) for r in (x.as_rule() for x in items)] + list(proposed.values())
     rules = merge(fresh, (previous or {}).get("rules") or [])
     config: dict[str, Any] = {
         "version": 1,

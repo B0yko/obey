@@ -65,3 +65,23 @@ def test_scope_from_nested_file(tmp_path: Path) -> None:
     (tmp_path / "web").mkdir()
     (rule,) = rules_for(tmp_path, "- Never push.\n", name="web/AGENTS.md")
     assert rule["scope"]["paths"] == ["web/**"]
+
+
+def test_llm_proposal_replaces_its_uncheckable_rule(tmp_path: Path) -> None:
+    from obey_cli.extract import Extracted
+    from obey_cli.rules import build_config
+
+    (tmp_path / "AGENTS.md").write_text("- Keep message text in templates/, not in Go files.\n- Never push.\n")
+    files = discover(tmp_path)
+    (uncheckable,) = [x for x in extract(files) if x.status == "uncheckable"]
+    proposal = Extracted(
+        candidate=uncheckable.candidate,
+        file=uncheckable.file,
+        status="proposed",
+        origin="llm",
+        checker={"type": "content_forbidden_added", "params": {"regex": '"[^"]+ [^"]+"', "globs": ["**/*.go"]}},
+        reason="proposed by --llm",
+    )
+    config, _ = build_config(tmp_path, proposals=[proposal])
+    statuses = sorted(r["status"] for r in config["rules"])
+    assert statuses == ["active", "proposed"]
