@@ -326,7 +326,7 @@ def llm_pass(
     for start in range(0, len(queue), batch_size):
         chunk = queue[start : start + batch_size]
         try:
-            results = llm_classify([t for _, t in chunk], config, ledger, run_id="survey-llm")
+            results = llm_classify([t for _, t in chunk], config, ledger, run_id="survey-llm", types_only=True)
         except Exception as exc:
             log(f"llm batch {start // batch_size} failed: {exc}")
             continue

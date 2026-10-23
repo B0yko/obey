@@ -1134,10 +1134,23 @@ def _normalize_llm(data: Any) -> dict[str, Any]:
     return {"rules": out}
 
 
+LLM_TYPES_SYSTEM = (
+    "You classify coding-agent instructions. For each numbered instruction say which deterministic checker type could "
+    "verify it from the agent's shell commands, file edits, git diff, commits and final message, or null when it needs "
+    "human judgement. Types: command_forbidden, command_required, path_forbidden, path_required_with, "
+    "dependency_unchanged, content_forbidden_added, content_required_added, commit_message, no_commit, no_push, "
+    'file_naming, final_message. Reply with one JSON object only: {"rules": [{"index": 0, "checkable": true, '
+    '"type": "no_push"}, {"index": 1, "checkable": false}]}'
+)
+
+
 def llm_classify(
-    texts: Sequence[str], config: Any, ledger: Any = None, run_id: str = "extract-llm"
+    texts: Sequence[str], config: Any, ledger: Any = None, run_id: str = "extract-llm", types_only: bool = False
 ) -> list[dict[str, Any] | None]:
-    """One LLM call for a batch of rule texts; returns a checker proposal (or None) per text."""
+    """One LLM call for a batch of rule texts; returns a checker proposal (or None) per text.
+
+    `types_only` asks for the checker type alone, which is enough for counting and much cheaper.
+    """
     from obey_cli.llm import chat_json
 
     out: list[dict[str, Any] | None] = [None] * len(texts)
@@ -1146,12 +1159,12 @@ def llm_classify(
     numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(texts))
     data = chat_json(
         config,
-        LLM_SYSTEM,
+        LLM_TYPES_SYSTEM if types_only else LLM_SYSTEM,
         numbered,
         LLM_SCHEMA,
         ledger=ledger,
         run_id=run_id,
-        max_tokens=min(12000, 400 + 160 * len(texts)),
+        max_tokens=min(12000, 1200 + (40 if types_only else 160) * len(texts)),
         normalize=_normalize_llm,
     )
     for row in data.get("rules", []):

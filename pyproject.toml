@@ -80,6 +80,8 @@ ignore = ["S101", "S603", "S607", "S404", "RUF001", "RUF002", "RUF003", "PTH123"
 strict = true
 python_version = "3.10"
 files = ["src/obey_cli"]
+# Hook templates are standalone scripts copied into users' repositories; they are tested under Python 3.9.
+exclude = ["src/obey_cli/enforce/templates/"]
 
 [[tool.mypy.overrides]]
 module = ["matplotlib.*", "numpy.*", "egress_proxy", "gateway"]
