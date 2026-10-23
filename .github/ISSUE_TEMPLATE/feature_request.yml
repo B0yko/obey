@@ -1,0 +1,15 @@
+name: Feature request
+description: A rule type, agent, probe template or enforcement target you need
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need
+      description: The rule you want measured or enforced (quote it), and the agent you use.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters

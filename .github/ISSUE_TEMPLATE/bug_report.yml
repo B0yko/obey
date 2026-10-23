@@ -1,0 +1,23 @@
+name: Bug report
+description: Something obey did that it should not have (or did not do that it should)
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, what you expected, and what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: rule
+    attributes:
+      label: Rule and run (if it is about a verdict)
+      description: The rule text and checker from obey.yaml, and the relevant part of the run (command, diff hunk or commit). Remove anything private.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "Output of `obey doctor` (obey, Python, agent CLI versions)"
+    validations:
+      required: true
