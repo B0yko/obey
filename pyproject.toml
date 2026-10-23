@@ -54,6 +54,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "types-PyYAML>=6.0",
+    "types-jsonschema>=4.26.0.20261006",
 ]
 
 [tool.ruff]
