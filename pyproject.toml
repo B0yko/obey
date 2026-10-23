@@ -29,7 +29,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-study = ["matplotlib>=3.8", "numpy>=1.26"]
+study = [
+    "matplotlib>=3.8",
+    "numpy>=1.26",
+]
 
 [project.scripts]
 obey = "obey_cli.cli:main"
@@ -56,6 +59,7 @@ dev = [
     "types-PyYAML>=6.0",
     "types-jsonschema>=4.26.0.20261006",
     "numpy>=2.2.6",
+    "matplotlib>=3.10.9",
 ]
 
 [tool.ruff]
