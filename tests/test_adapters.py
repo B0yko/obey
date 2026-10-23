@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 
 from obey_cli.runner import agents
-from obey_cli.runner.agents.base import WORKDIR, RunContext, relpath
+from obey_cli.runner.agents.base import DUMMY_TOKEN, WORKDIR, RunContext, relpath
 
 STREAMS = Path(__file__).parents[1] / "fixtures" / "streams"
 CTX = RunContext(run_id="r1", model="vendor/model", gateway_url="http://obey-gw:8787")
@@ -85,6 +86,16 @@ def test_invocations_isolate_configuration() -> None:
     assert gm.env["GOOGLE_GEMINI_BASE_URL"].startswith("http://127.0.0.1:")
     for inv in (cc, codex, oc, cp, gm):
         assert not any(v.startswith("sk-") for v in inv.env.values())
+
+
+def test_gemini_reaches_the_gateway_through_an_allowed_forwarder() -> None:
+    from obey_cli.runner import sidecar
+
+    gm = agents.get("gemini").invocation("p", CTX)
+    base = urlsplit(gm.env["GOOGLE_GEMINI_BASE_URL"])
+    assert base.path == "/r/r1/gemini" and base.netloc in sidecar.ALLOWED_HOSTS
+    assert gm.env["OBEY_LOCAL_FORWARD"] == str(base.port)
+    assert gm.env["GEMINI_API_KEY"] == DUMMY_TOKEN and gm.argv[-2:] == ["-m", "vendor/model"]
 
 
 def test_unknown_agent() -> None:

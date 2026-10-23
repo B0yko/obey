@@ -180,7 +180,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     allow = list((config.get("sandbox") or {}).get("allow_hosts") or cfg.DEFAULT_ALLOW_HOSTS)
     remaining = ledger.remaining()
     batch = box.start_batch(
-        key=key, model=model, price=price, allow_hosts=allow, run_cap=args.run_cap, budget=remaining
+        key=key,
+        model=model,
+        price=price,
+        allow_hosts=allow,
+        run_cap=args.run_cap,
+        budget=remaining,
+        run_ids=[p.run_id for p in planned],
     )
     stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = Path(args.out) if args.out else root / ".obey" / "runs" / stamp

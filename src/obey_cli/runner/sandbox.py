@@ -150,6 +150,7 @@ class DockerSandbox:
         run_cap: float | None,
         budget: float | None,
         upstreams: Mapping[str, str] | None = None,
+        run_ids: Sequence[str] | None = None,
     ) -> Batch:
         tag = uuid.uuid4().hex[:10]
         batch = Batch(
@@ -169,6 +170,9 @@ class DockerSandbox:
                 args += ["--upstream", f"{api}={url}"]
             for host in allow_hosts:
                 args += ["--allow", host]
+            # Registered run ids: a run cannot reset its spend cap by calling the gateway under another id.
+            for run_id in run_ids or ():
+                args += ["--run-id", run_id]
             _docker(
                 "create",
                 "--name",

@@ -1,18 +1,20 @@
 """Model gateway: holds the API key outside the agent's container (standard library only).
 
 Agents get a dummy token and a base URL of the form http://<gateway>/r/<run_id>/<api>, where <api> is
-`anthropic` (Messages API) or `openai` (Chat Completions / Responses). The gateway swaps in the real key,
-pins the model, streams the response back, records token usage and cost per run in the ledger file, and
-refuses calls once a run or the whole batch reaches its cap.
+`anthropic` (Messages API), `openai` (Chat Completions / Responses) or `gemini`. The gateway checks the dummy token,
+swaps in the real key, pins the model, streams the response back, records token usage and cost per run in the
+ledger file, and refuses calls once a run or the whole batch reaches its cap. Only the model endpoints of each
+API are reachable, and only for run ids the host registered (when it registered any).
 
     OBEY_UPSTREAM_KEY=... python3 gateway.py --listen 0.0.0.0:8787 --model vendor/model --ledger ledger.jsonl \
-        --price-prompt 3e-7 --price-completion 1.2e-6 --run-cap 0.5 --budget 20
+        --price-prompt 3e-7 --price-completion 1.2e-6 --run-cap 0.5 --budget 20 --run-id r1 --run-id r2
 """
 
 from __future__ import annotations
 
 import argparse
 import contextlib
+import hmac
 import http.client
 import json
 import os
@@ -21,15 +23,31 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlsplit
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 UPSTREAMS = {
     "anthropic": "https://openrouter.ai/api",
     "openai": "https://openrouter.ai/api/v1",
     "gemini": "https://generativelanguage.googleapis.com",
 }
-_PATH_RE = re.compile(r"^/r/([A-Za-z0-9._-]{1,80})/(anthropic|openai|gemini)(/.*)?$")
+DUMMY_TOKEN = "obey-dummy-token"  # noqa: S105 - what agents send; same value as runner/agents/base.py (stand-alone file)
+MAX_BODY = 64 * 1024 * 1024
+_PATH_RE = re.compile(r"/r/([A-Za-z0-9._-]{1,80})/(anthropic|openai|gemini)(/.*)?")
+_CHUNK_SIZE_RE = re.compile(rb"[0-9A-Fa-f]{1,8}")
+# What an agent may call, per API, relative to the upstream base URL (the openai base already ends in /v1).
+_ROUTES: Dict[str, List[Tuple[str, "re.Pattern[str]"]]] = {
+    "anthropic": [("POST", re.compile(r"/v1/messages(?:/count_tokens)?")), ("GET", re.compile(r"/v1/models"))],
+    "openai": [("POST", re.compile(r"/(?:chat/completions|responses)")), ("GET", re.compile(r"/models"))],
+    "gemini": [
+        (
+            "POST",
+            re.compile(
+                r"/v1beta/models/(?P<model>[A-Za-z0-9._-]+):(?P<verb>generateContent|streamGenerateContent|countTokens)"
+            ),
+        )
+    ],
+}
 _HOP_HEADERS = {
     "connection",
     "keep-alive",
@@ -43,8 +61,10 @@ _HOP_HEADERS = {
     "content-length",
     "authorization",
     "x-api-key",
+    "x-goog-api-key",
     "accept-encoding",
 }
+_RESPONSE_SKIP = _HOP_HEADERS | {"server", "date"}  # send_response adds our own
 
 
 class Config:
@@ -58,6 +78,8 @@ class Config:
         budget: Optional[float],
         upstreams: Dict[str, str],
         allowed_hosts: Optional[List[str]] = None,
+        token: str = DUMMY_TOKEN,
+        run_ids: Optional[Iterable[str]] = None,
     ):
         self.key = key
         self.model = model
@@ -67,6 +89,9 @@ class Config:
         self.budget = budget
         self.upstreams = upstreams
         self.allowed_hosts = allowed_hosts
+        self.token = token
+        # Run ids the host registered for this batch; None accepts any id (and register_run() switches the check on).
+        self.run_ids: Optional[Set[str]] = set(run_ids) if run_ids is not None else None
         self.lock = threading.Lock()
         self.spent: Dict[str, float] = {}
         self.total = 0.0
@@ -80,6 +105,16 @@ class Config:
     def _add(self, run_id: str, cost: float) -> None:
         self.spent[run_id] = self.spent.get(run_id, 0.0) + cost
         self.total += cost
+
+    def register_run(self, run_id: str) -> None:
+        with self.lock:
+            if self.run_ids is None:
+                self.run_ids = set()
+            self.run_ids.add(run_id)
+
+    def known_run(self, run_id: str) -> bool:
+        with self.lock:
+            return self.run_ids is None or run_id in self.run_ids
 
     def over_cap(self, run_id: str) -> Optional[str]:
         with self.lock:
@@ -217,6 +252,42 @@ def rewrite_body(api: str, raw: bytes, model: Optional[str]) -> Tuple[bytes, str
     return json.dumps(body).encode(), requested
 
 
+def clean_path(rest: str) -> Optional[str]:
+    """Percent-decode a request path once; None if it could climb out of its route (dot segments, encoded slashes)."""
+    low = rest.lower()
+    if "%2f" in low or "%5c" in low or "%25" in low or "\\" in rest:
+        return None
+    path = unquote(rest)
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in path) or "//" in path:
+        return None
+    if any(segment in (".", "..") for segment in path.split("/")):
+        return None
+    return path
+
+
+def route(api: str, method: str, rest: str, pinned: Optional[str]) -> Optional[Tuple[str, str]]:
+    """Check a path against the API's allow-list. Returns (upstream path, model named in the path), or None to refuse.
+
+    Gemini names its model in the path, so the pin is applied here rather than in the body."""
+    path = clean_path(rest)
+    if path is None:
+        return None
+    for verb, pattern in _ROUTES[api]:
+        found = pattern.fullmatch(path)
+        if verb == method and found:
+            requested = found.groupdict().get("model") or ""
+            if requested and pinned:
+                path = f"/v1beta/models/{quote(pinned, safe='')}:{found.group('verb')}"
+            return path, requested
+    return None
+
+
+class BadBody(Exception):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "obey-gateway"
     protocol_version = "HTTP/1.1"
@@ -225,24 +296,70 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
-    def _reply(self, status: int, payload: Dict[str, Any]) -> None:
+    def _reply(self, status: int, payload: Dict[str, Any], close: bool = False) -> None:
         data = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        if close:  # the request body was not read, so the connection cannot be reused
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(data)
 
     def _guard(self) -> bool:
         cfg = self.config
         if self.headers.get("Origin"):
-            self._reply(403, {"error": {"message": "browser requests are not accepted"}})
+            self._reply(403, {"error": {"message": "browser requests are not accepted"}}, close=True)
             return False
         host = (self.headers.get("Host") or "").lower()
         if cfg.allowed_hosts is not None and host not in cfg.allowed_hosts:
-            self._reply(403, {"error": {"message": "unexpected Host header"}})
+            self._reply(403, {"error": {"message": "unexpected Host header"}}, close=True)
             return False
         return True
+
+    def _authorised(self, api: str, query: str) -> bool:
+        """The agent must present the batch's dummy token (bearer, x-api-key, x-goog-api-key or Gemini's ?key=)."""
+        supplied = [self.headers.get("x-api-key") or "", self.headers.get("x-goog-api-key") or ""]
+        auth = self.headers.get("Authorization") or ""
+        if auth[:7].lower() == "bearer ":
+            supplied.append(auth[7:].strip())
+        if api == "gemini":
+            supplied += parse_qs(query).get("key", [])
+        token = self.config.token.encode()
+        return any(value and hmac.compare_digest(value.encode("utf-8", "replace"), token) for value in supplied)
+
+    def _read_body(self) -> bytes:
+        if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
+            return self._read_chunked()
+        text = (self.headers.get("Content-Length") or "0").strip()
+        if not (text.isascii() and text.isdigit()):
+            raise BadBody(400, "bad Content-Length")
+        length = int(text)
+        if length > MAX_BODY:
+            raise BadBody(413, "request body too large")
+        data = self.rfile.read(length) if length else b""
+        if len(data) < length:
+            raise BadBody(400, "request body ended early")
+        return data
+
+    def _read_chunked(self) -> bytes:
+        body = bytearray()
+        while True:
+            size_text = self.rfile.readline(1024).split(b";", 1)[0].strip()
+            if not _CHUNK_SIZE_RE.fullmatch(size_text):
+                raise BadBody(400, "bad chunk size")
+            size = int(size_text, 16)
+            if size == 0:
+                break
+            if len(body) + size > MAX_BODY:
+                raise BadBody(413, "request body too large")
+            chunk = self.rfile.read(size)
+            if len(chunk) < size or self.rfile.read(2) != b"\r\n":
+                raise BadBody(400, "bad chunked body")
+            body += chunk
+        while self.rfile.readline(1024).strip():  # trailers
+            pass
+        return bytes(body)
 
     def do_GET(self) -> None:
         self._forward("GET")
@@ -253,45 +370,65 @@ class Handler(BaseHTTPRequestHandler):
     def _forward(self, method: str) -> None:
         if not self._guard():
             return
-        match = _PATH_RE.match(urlsplit(self.path).path)
+        raw_path, _, query = self.path.partition("?")
+        match = _PATH_RE.fullmatch(raw_path)
         if not match:
-            self._reply(404, {"error": {"message": "use /r/<run_id>/<anthropic|openai>/..."}})
+            self._reply(404, {"error": {"message": "use /r/<run_id>/<anthropic|openai|gemini>/..."}}, close=True)
             return
         run_id, api, rest = match.group(1), match.group(2), match.group(3) or "/"
-        query = urlsplit(self.path).query
+        if not self._authorised(api, query):
+            self._reply(401, {"error": {"message": "missing or wrong gateway token"}}, close=True)
+            return
+        try:
+            raw = self._read_body()
+        except BadBody as exc:
+            self._reply(exc.status, {"error": {"message": str(exc)}}, close=True)
+            return
+        if not self.config.known_run(run_id):
+            self._reply(403, {"error": {"message": "unknown run id"}})
+            return
+        routed = route(api, method, rest, self.config.model)
+        if routed is None:
+            self._reply(403, {"error": {"message": "path not allowed"}})
+            return
+        upath, path_model = routed
         reason = self.config.over_cap(run_id)
         if reason:
             self._reply(402, {"type": "error", "error": {"type": "budget_exceeded", "message": reason}})
             return
-        length = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(length) if length else b""
         body, requested = rewrite_body(api, raw, self.config.model) if method == "POST" else (raw, "")
+        requested = requested or path_model
         base = urlsplit(self.config.upstreams[api])
-        path = base.path.rstrip("/") + rest + (f"?{query}" if query else "")
         headers = {k: v for k, v in self.headers.items() if k.lower() not in _HOP_HEADERS}
         if api == "gemini":
             headers["x-goog-api-key"] = self.config.key
-            if "key=" in query:
-                query = "&".join(q for q in query.split("&") if not q.startswith("key="))
-                path = base.path.rstrip("/") + rest + (f"?{query}" if query else "")
+            query = "&".join(q for q in query.split("&") if not q.startswith("key="))
         else:
             headers["Authorization"] = f"Bearer {self.config.key}"
-        headers["Content-Length"] = str(len(body))
+        path = base.path.rstrip("/") + upath + (f"?{query}" if query else "")
+        if method == "POST":
+            headers["Content-Length"] = str(len(body))
         headers["Accept-Encoding"] = "identity"
         conn_cls = http.client.HTTPSConnection if base.scheme == "https" else http.client.HTTPConnection
         conn = conn_cls(base.netloc, timeout=600)
         meter = UsageMeter()
+        started = False  # response headers are on the wire, so a failure can no longer become a 502
+        streaming = False
+        collected = b""
         try:
             conn.request(method, path, body=body if method == "POST" else None, headers=headers)
             resp = conn.getresponse()
             streaming = "text/event-stream" in (resp.getheader("Content-Type") or "")
             self.send_response(resp.status)
             for key, value in resp.getheaders():
-                if key.lower() not in _HOP_HEADERS:
+                if key.lower() not in _RESPONSE_SKIP:
                     self.send_header(key, value)
+            if resp.status in (204, 304):  # no body, so no chunked framing either
+                self.end_headers()
+                return
             self.send_header("Transfer-Encoding", "chunked")
             self.end_headers()
-            collected = b""
+            started = True
             while True:
                 chunk = resp.read1(65536) if hasattr(resp, "read1") else resp.read(65536)
                 if not chunk:
@@ -302,15 +439,21 @@ class Handler(BaseHTTPRequestHandler):
                     collected += chunk
                 self.wfile.write(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
                 self.wfile.flush()
+            if resp.length:  # read1 does not notice an upstream that closed before its Content-Length
+                raise http.client.IncompleteRead(b"", resp.length)
             self.wfile.write(b"0\r\n\r\n")
+        except (OSError, http.client.HTTPException) as exc:
+            self.close_connection = True
+            with contextlib.suppress(OSError):
+                if started:  # end the chunked body here instead of writing a second response into it
+                    self.wfile.write(b"0\r\n\r\n")
+                else:
+                    self._reply(502, {"error": {"message": f"upstream error: {type(exc).__name__}"}})
+        finally:
+            conn.close()
             if not streaming and collected:
                 with contextlib.suppress(ValueError):
                     meter.feed_json(json.loads(collected))
-        except (OSError, http.client.HTTPException) as exc:
-            with contextlib.suppress(OSError):
-                self._reply(502, {"error": {"message": f"upstream error: {type(exc).__name__}"}})
-        finally:
-            conn.close()
             if method == "POST" and (any(meter.usage.values()) or meter.cost):
                 self.config.record(run_id, requested, meter.usage, meter.cost)
 
@@ -336,6 +479,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--budget", type=float, default=None, help="USD for everything in the ledger")
     parser.add_argument("--upstream", action="append", default=[], help="api=https://base (repeatable)")
     parser.add_argument("--allowed-host", action="append", default=None, help="accepted Host header (repeatable)")
+    parser.add_argument("--token", default=DUMMY_TOKEN, help="token agents must present instead of a real key")
+    parser.add_argument("--run-id", action="append", default=None, help="accepted run id (repeatable; default: any)")
     args = parser.parse_args(argv)
     key = os.environ.get("OBEY_UPSTREAM_KEY", "")
     if not key:
@@ -359,6 +504,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         args.budget,
         upstreams,
         [h.lower() for h in args.allowed_host] if args.allowed_host else None,
+        args.token,
+        args.run_id,
     )
     server = make_server(args.listen, config)
     print(f"gateway listening on {args.listen}", flush=True)

@@ -19,6 +19,7 @@ from obey_cli.runner.agents.base import (
 from obey_cli.runner.sandbox import AGENT_HOME, Invocation
 
 GEMINI_HOME = f"{AGENT_HOME}/.obey-gemini"
+FORWARD_PORT = "8788"  # entrypoint.sh forwards 127.0.0.1:<port> to the gateway; runner/sidecar.py allows that Host
 _EXIT_RE = re.compile(r"Exit Code:\s*(\d+)")
 
 
@@ -42,11 +43,11 @@ class Gemini(Adapter):
             # Gemini CLI accepts plain HTTP only on localhost; the entrypoint forwards 127.0.0.1:8788 to the gateway.
             "GOOGLE_GEMINI_BASE_URL": ctx.base("gemini")
             if ctx.local
-            else f"http://127.0.0.1:8788/r/{ctx.run_id}/gemini",
+            else f"http://127.0.0.1:{FORWARD_PORT}/r/{ctx.run_id}/gemini",
             "GEMINI_TELEMETRY_ENABLED": "false",
         }
         if not ctx.local:
-            env["OBEY_LOCAL_FORWARD"] = "8788"
+            env["OBEY_LOCAL_FORWARD"] = FORWARD_PORT
         else:
             argv.append("--sandbox")
         files = {".obey-gemini/.gemini/settings.json": settings}

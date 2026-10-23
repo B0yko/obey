@@ -55,10 +55,18 @@ class LocalSandbox:
         run_cap: float | None,
         budget: float | None,
         upstreams: Mapping[str, str] | None = None,
+        run_ids: Sequence[str] | None = None,
     ) -> LocalBatch:
         ledger_path = Path(tempfile.mkdtemp(prefix="obey-ledger-")) / "ledger.jsonl"
         config = gateway.Config(
-            key, model, str(ledger_path), dict(price), run_cap, budget, {**gateway.UPSTREAMS, **(upstreams or {})}
+            key,
+            model,
+            str(ledger_path),
+            dict(price),
+            run_cap,
+            budget,
+            {**gateway.UPSTREAMS, **(upstreams or {})},
+            run_ids=run_ids,
         )
         server = gateway.make_server("127.0.0.1:0", config)
         port = server.server_address[1]
@@ -77,6 +85,7 @@ class LocalSandbox:
         base_sha: str | None = None,
         copy_back_work: bool = False,
     ) -> RawRun:
+        batch.config.register_run(run_id)
         work = root / "work"
         home = root / "home"
         home.mkdir(parents=True, exist_ok=True)

@@ -15,6 +15,9 @@ import egress_proxy
 import gateway
 
 HOME = os.path.expanduser("~")
+# Host headers the gateway accepts: the network alias, and the in-container forwarder (sandbox/entrypoint.sh) that
+# Gemini CLI uses because it takes plain HTTP only on localhost.
+ALLOWED_HOSTS = ("obey-gw:8787", "127.0.0.1:8788")
 
 
 def main() -> int:
@@ -22,7 +25,8 @@ def main() -> int:
     parser.add_argument("--allow", action="append", default=[])
     known, rest = parser.parse_known_args()
     rest += ["--listen", "0.0.0.0:8787", "--ledger", os.path.join(HOME, "ledger.jsonl")]
-    rest += ["--allowed-host", "obey-gw:8787"]
+    for host in ALLOWED_HOSTS:
+        rest += ["--allowed-host", host]
     gateway_thread = threading.Thread(target=gateway.main, args=(rest,), daemon=True)
     gateway_thread.start()
     proxy = egress_proxy.Proxy(known.allow, os.path.join(HOME, "egress.jsonl"))

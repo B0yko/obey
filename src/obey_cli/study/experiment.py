@@ -135,6 +135,7 @@ def execute(
             allow_hosts=design.get("allow_hosts") or ["registry.npmjs.org", "pypi.org", "files.pythonhosted.org"],
             run_cap=0.5,
             budget=None,
+            run_ids=[r.run_id for r in mine],
         )
 
         def one(run: StudyRun, adapter: Any = adapter, batch: Any = batch, harness: str = harness) -> None:

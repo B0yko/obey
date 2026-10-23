@@ -18,6 +18,7 @@ import time
 from typing import Optional
 
 MAX_HEADER = 16384
+IDLE_TIMEOUT = 300.0  # seconds without a byte in either direction before a tunnel is dropped
 
 
 def host_allowed(host: str, port: int, allow: "list[str]", ports: "tuple[int, ...]" = (443,)) -> bool:
@@ -35,10 +36,17 @@ def host_allowed(host: str, port: int, allow: "list[str]", ports: "tuple[int, ..
 
 
 class Proxy:
-    def __init__(self, allow: "list[str]", log_path: Optional[str], ports: "tuple[int, ...]" = (443,)):
+    def __init__(
+        self,
+        allow: "list[str]",
+        log_path: Optional[str],
+        ports: "tuple[int, ...]" = (443,),
+        idle_timeout: float = IDLE_TIMEOUT,
+    ):
         self.allow = allow
         self.ports = ports
         self.log_path = log_path
+        self.idle_timeout = idle_timeout
 
     def log(self, **fields: object) -> None:
         line = json.dumps({"ts": round(time.time(), 3), **fields}, sort_keys=True)
@@ -88,20 +96,36 @@ class Proxy:
             await self._refuse(writer, 502, "upstream unreachable")
             return
         self.log(event="allowed", host=host, port=port, client=str(peer))
-        writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
-        await writer.drain()
-        await asyncio.gather(self._pipe(reader, up_writer), self._pipe(up_reader, writer))
+        try:
+            writer.write(b"HTTP/1.1 200 Connection established\r\n\r\n")
+            await writer.drain()
+            last = [asyncio.get_running_loop().time()]
+            await asyncio.gather(self._pipe(reader, up_writer, last), self._pipe(up_reader, writer, last))
+        except (OSError, asyncio.TimeoutError):
+            pass
+        finally:  # whatever ended the tunnel, neither side may stay open
+            for end in (up_writer, writer):
+                with contextlib.suppress(Exception):
+                    end.close()
 
-    @staticmethod
-    async def _pipe(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def _pipe(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, last: "list[float]") -> None:
+        """Copy bytes one way. `last` is when either direction last moved data; the tunnel ends after idle_timeout."""
+        loop = asyncio.get_running_loop()
         try:
             while True:
-                chunk = await reader.read(65536)
+                wait = self.idle_timeout - (loop.time() - last[0])
+                if wait <= 0:
+                    break
+                try:
+                    chunk = await asyncio.wait_for(reader.read(65536), timeout=wait)
+                except asyncio.TimeoutError:
+                    continue
                 if not chunk:
                     break
+                last[0] = loop.time()
                 writer.write(chunk)
-                await writer.drain()
-        except (ConnectionError, asyncio.CancelledError):
+                await asyncio.wait_for(writer.drain(), timeout=self.idle_timeout)
+        except (OSError, asyncio.TimeoutError, asyncio.CancelledError):
             pass
         finally:
             with contextlib.suppress(Exception):
@@ -132,8 +156,9 @@ def main(argv: "Optional[list[str]]" = None) -> int:
     parser.add_argument("--listen", default="127.0.0.1:3128")
     parser.add_argument("--allow", action="append", default=[], help="host or *.suffix (repeatable)")
     parser.add_argument("--log", default=None, help="JSON-lines log file (default: stdout)")
+    parser.add_argument("--idle-timeout", type=float, default=IDLE_TIMEOUT, help="seconds of silence that end a tunnel")
     args = parser.parse_args(argv)
-    asyncio.run(serve(args.listen, Proxy(args.allow, args.log)))
+    asyncio.run(serve(args.listen, Proxy(args.allow, args.log, idle_timeout=args.idle_timeout)))
     return 0
 
 

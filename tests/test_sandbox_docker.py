@@ -31,8 +31,9 @@ set +e
 probe() { python3 - "$@" <<'PY'
 import sys, urllib.request
 url = sys.argv[1]
+headers = {"Authorization": f"Bearer {sys.argv[2]}"} if len(sys.argv) > 2 else {}
 try:
-    with urllib.request.urlopen(url, timeout=15) as r:
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=15) as r:
         print(r.status)
 except Exception as e:
     print(type(e).__name__, getattr(e, "code", ""), str(e)[:80].replace("\n", " "))
@@ -40,7 +41,8 @@ PY
 }
 echo "allowed: $(probe https://pypi.org/simple/pip/)"
 echo "denied: $(probe https://example.com/)"
-echo "gateway: $(probe http://obey-gw:8787/r/t1/openai/models)"
+echo "gateway: $(probe http://obey-gw:8787/r/t1/openai/models obey-dummy-token)"
+echo "no-token: $(probe http://obey-gw:8787/r/t1/openai/models)"
 echo "direct: $(env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy python3 - <<'PY'
 import socket
 try:
@@ -74,6 +76,7 @@ def test_egress_is_allow_listed_and_key_stays_outside(batch: tuple[DockerSandbox
     assert lines["allowed"] == "200"
     assert lines["denied"].startswith(("URLError", "HTTPError", "ProxyError", "OSError")), lines["denied"]
     assert lines["gateway"] == "200"
+    assert lines["no-token"].startswith("HTTPError 401")
     assert lines["direct"].startswith("blocked")
     assert lines["key"] == "absent absent"
     assert (raw.root / "work" / "README.md").read_text() == "x\n"
