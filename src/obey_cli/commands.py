@@ -624,10 +624,8 @@ def cmd_demo(args: argparse.Namespace) -> int:
             else (f"{s.compliance * 100:3.0f}% [{(s.ci_low or 0) * 100:2.0f}–{(s.ci_high or 0) * 100:3.0f}]")
         )
         b = base.get(s.rule_id)
-        out(
-            f"{_cut(rule['text'], 58):58s} {comp:>17s} {(f'{b.compliance * 100:.0f}%' if b and b.compliance is not None else '–'):>9s} "
-            f"{s.exercised:>4d}/{s.runs:<4d}"
-        )
+        baseline = f"{b.compliance * 100:.0f}%" if b and b.compliance is not None else "–"
+        out(f"{_cut(rule['text'], 58):58s} {comp:>17s} {baseline:>9s} {s.exercised:>4d}/{s.runs:<4d}")
     out("")
     for line in report["summary"]:
         out(line + ".")
@@ -638,10 +636,9 @@ def cmd_demo(args: argparse.Namespace) -> int:
         out("With hooks from `obey enforce` (same probes, same agent):")
         out(f"{'Rule':58s} {'Before':>7s} {'After':>7s} {'Blocked':>8s} {'Evasions':>9s}")
         for r in rows:
-            out(
-                f"{_cut(rules[r['rule_id']]['text'], 58):58s} {r['before'] * 100 if r['before'] is not None else 0:6.0f}% "
-                f"{r['after'] * 100:6.0f}% {r['blocked_runs']:8d} {r['evasions']:9d}"
-            )
+            before_pct = r["before"] * 100 if r["before"] is not None else 0.0
+            text = _cut(rules[r["rule_id"]]["text"], 58)
+            out(f"{text:58s} {before_pct:6.0f}% {r['after'] * 100:6.0f}% {r['blocked_runs']:8d} {r['evasions']:9d}")
         a, b = cmp["after"], cmp["before"]
         out(
             f"Pooled: {(b['compliance'] or 0) * 100:.0f}% → {(a['compliance'] or 0) * 100:.0f}%; "
