@@ -71,7 +71,7 @@ ignore = ["S101", "S603", "S607", "S404", "RUF001", "RUF002", "RUF003", "PTH123"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "PTH"]
 "eval/**" = ["S", "PTH"]
-"src/obey_cli/enforce/engine/**" = ["UP", "PTH"]
+"src/obey_cli/enforce/engine/**" = ["UP", "PTH", "SIM102", "SIM103", "B007", "E501"]
 "src/obey_cli/enforce/templates/**" = ["UP", "PTH"]
 "src/obey_cli/runner/gateway.py" = ["UP", "PTH"]
 "src/obey_cli/runner/egress_proxy.py" = ["UP", "PTH"]

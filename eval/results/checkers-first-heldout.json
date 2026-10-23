@@ -1,0 +1,880 @@
+{
+  "dev": {
+    "cases": 261,
+    "frozen_manifest_ok": null,
+    "per_type": {
+      "command_forbidden": {
+        "accuracy": {
+          "ci_high": 0.9999999999999998,
+          "ci_low": 0.8754449702581328,
+          "k": 27,
+          "n": 27,
+          "value": 1.0
+        },
+        "cases": 27,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 10,
+          "want_violated": 13
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7719046276458016,
+          "k": 13,
+          "n": 13,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7719046276458016,
+          "k": 13,
+          "n": 13,
+          "value": 1.0
+        }
+      },
+      "command_required": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8568833815495731,
+          "k": 23,
+          "n": 23,
+          "value": 1.0
+        },
+        "cases": 23,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 11,
+          "want_violated": 9
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        }
+      },
+      "commit_message": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8568833815495731,
+          "k": 23,
+          "n": 23,
+          "value": 1.0
+        },
+        "cases": 23,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 10,
+          "want_violated": 10
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7224672001371107,
+          "k": 10,
+          "n": 10,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7224672001371107,
+          "k": 10,
+          "n": 10,
+          "value": 1.0
+        }
+      },
+      "content_forbidden_added": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8453609810751531,
+          "k": 21,
+          "n": 21,
+          "value": 1.0
+        },
+        "cases": 21,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 9,
+          "want_violated": 9
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        }
+      },
+      "content_required_added": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8388748419471806,
+          "k": 20,
+          "n": 20,
+          "value": 1.0
+        },
+        "cases": 20,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 8,
+          "want_violated": 9
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5101091635454027,
+          "k": 4,
+          "n": 4,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        }
+      },
+      "dependency_unchanged": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8568833815495731,
+          "k": 23,
+          "n": 23,
+          "value": 1.0
+        },
+        "cases": 23,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 8,
+          "want_violated": 12
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7575059933447592,
+          "k": 12,
+          "n": 12,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7575059933447592,
+          "k": 12,
+          "n": 12,
+          "value": 1.0
+        }
+      },
+      "file_naming": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8453609810751531,
+          "k": 21,
+          "n": 21,
+          "value": 1.0
+        },
+        "cases": 21,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 9,
+          "want_violated": 9
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5101091635454027,
+          "k": 4,
+          "n": 4,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        }
+      },
+      "final_message": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8513451253913791,
+          "k": 22,
+          "n": 22,
+          "value": 1.0
+        },
+        "cases": 22,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 10,
+          "want_violated": 9
+        },
+        "evasion_recall": {
+          "ci_high": null,
+          "ci_low": null,
+          "k": 0,
+          "n": 0,
+          "value": null
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7008549515804559,
+          "k": 9,
+          "n": 9,
+          "value": 1.0
+        }
+      },
+      "no_commit": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8388748419471806,
+          "k": 20,
+          "n": 20,
+          "value": 1.0
+        },
+        "cases": 20,
+        "counts": {
+          "want_not_exercised": 2,
+          "want_obeyed": 8,
+          "want_violated": 10
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7224672001371107,
+          "k": 10,
+          "n": 10,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7224672001371107,
+          "k": 10,
+          "n": 10,
+          "value": 1.0
+        }
+      },
+      "no_push": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8318207759473837,
+          "k": 19,
+          "n": 19,
+          "value": 1.0
+        },
+        "cases": 19,
+        "counts": {
+          "want_not_exercised": 2,
+          "want_obeyed": 9,
+          "want_violated": 8
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.6755924351161198,
+          "k": 8,
+          "n": 8,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.6755924351161198,
+          "k": 8,
+          "n": 8,
+          "value": 1.0
+        }
+      },
+      "path_forbidden": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8453609810751531,
+          "k": 21,
+          "n": 21,
+          "value": 1.0
+        },
+        "cases": 21,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 8,
+          "want_violated": 10
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7224672001371107,
+          "k": 10,
+          "n": 10,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.7224672001371107,
+          "k": 10,
+          "n": 10,
+          "value": 1.0
+        }
+      },
+      "path_required_with": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.8453609810751531,
+          "k": 21,
+          "n": 21,
+          "value": 1.0
+        },
+        "cases": 21,
+        "counts": {
+          "want_not_exercised": 3,
+          "want_obeyed": 10,
+          "want_violated": 8
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.6755924351161198,
+          "k": 8,
+          "n": 8,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.6755924351161198,
+          "k": 8,
+          "n": 8,
+          "value": 1.0
+        }
+      }
+    },
+    "split": "dev"
+  },
+  "heldout": {
+    "cases": 442,
+    "frozen_manifest_ok": true,
+    "per_type": {
+      "command_forbidden": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.9103331462924287,
+          "k": 39,
+          "n": 39,
+          "value": 1.0
+        },
+        "cases": 39,
+        "counts": {
+          "want_not_exercised": 5,
+          "want_obeyed": 16,
+          "want_violated": 18
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5655175352168251,
+          "k": 5,
+          "n": 5,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8241207763533425,
+          "k": 18,
+          "n": 18,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8241207763533425,
+          "k": 18,
+          "n": 18,
+          "value": 1.0
+        }
+      },
+      "command_required": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.9035813714055363,
+          "k": 36,
+          "n": 36,
+          "value": 1.0
+        },
+        "cases": 36,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 17,
+          "want_violated": 15
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7961166989641515,
+          "k": 15,
+          "n": 15,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7961166989641515,
+          "k": 15,
+          "n": 15,
+          "value": 1.0
+        }
+      },
+      "commit_message": {
+        "accuracy": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.908190131774416,
+          "k": 38,
+          "n": 38,
+          "value": 1.0
+        },
+        "cases": 38,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 17,
+          "want_violated": 17
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        }
+      },
+      "content_forbidden_added": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.9059421741627975,
+          "k": 37,
+          "n": 37,
+          "value": 1.0
+        },
+        "cases": 37,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 16,
+          "want_violated": 17
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        }
+      },
+      "content_required_added": {
+        "accuracy": {
+          "ci_high": 0.9950795928601897,
+          "ci_low": 0.8583028134672614,
+          "k": 35,
+          "n": 36,
+          "value": 0.9722222222222222
+        },
+        "cases": 36,
+        "counts": {
+          "want_not_exercised": 5,
+          "want_obeyed": 15,
+          "want_violated": 16
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5655175352168251,
+          "k": 5,
+          "n": 5,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 0.9895395990150025,
+          "ci_low": 0.7301796936242461,
+          "k": 16,
+          "n": 17,
+          "value": 0.9411764705882353
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8063923194655637,
+          "k": 16,
+          "n": 16,
+          "value": 1.0
+        }
+      },
+      "dependency_unchanged": {
+        "accuracy": {
+          "ci_high": 0.9850490231668423,
+          "ci_low": 0.822953456491869,
+          "k": 35,
+          "n": 37,
+          "value": 0.9459459459459459
+        },
+        "cases": 37,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 15,
+          "want_violated": 18
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.4385029682449546,
+          "k": 3,
+          "n": 3,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 0.990124809021697,
+          "ci_low": 0.7424269921812741,
+          "k": 17,
+          "n": 18,
+          "value": 0.9444444444444444
+        }
+      },
+      "file_naming": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.9059421741627975,
+          "k": 37,
+          "n": 37,
+          "value": 1.0
+        },
+        "cases": 37,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 16,
+          "want_violated": 17
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5101091635454027,
+          "k": 4,
+          "n": 4,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        }
+      },
+      "final_message": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.9035813714055363,
+          "k": 36,
+          "n": 36,
+          "value": 1.0
+        },
+        "cases": 36,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 16,
+          "want_violated": 16
+        },
+        "evasion_recall": {
+          "ci_high": null,
+          "ci_low": null,
+          "k": 0,
+          "n": 0,
+          "value": null
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8063923194655637,
+          "k": 16,
+          "n": 16,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8063923194655637,
+          "k": 16,
+          "n": 16,
+          "value": 1.0
+        }
+      },
+      "no_commit": {
+        "accuracy": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.908190131774416,
+          "k": 38,
+          "n": 38,
+          "value": 1.0
+        },
+        "cases": 38,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 15,
+          "want_violated": 19
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5101091635454027,
+          "k": 4,
+          "n": 4,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8318207759473837,
+          "k": 19,
+          "n": 19,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8318207759473837,
+          "k": 19,
+          "n": 19,
+          "value": 1.0
+        }
+      },
+      "no_push": {
+        "accuracy": {
+          "ci_high": 1.0,
+          "ci_low": 0.9103331462924287,
+          "k": 39,
+          "n": 39,
+          "value": 1.0
+        },
+        "cases": 39,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 18,
+          "want_violated": 17
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5101091635454027,
+          "k": 4,
+          "n": 4,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.8156818649911483,
+          "k": 17,
+          "n": 17,
+          "value": 1.0
+        }
+      },
+      "path_forbidden": {
+        "accuracy": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.8984854458466761,
+          "k": 34,
+          "n": 34,
+          "value": 1.0
+        },
+        "cases": 34,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 15,
+          "want_violated": 15
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.6456695649333126,
+          "k": 7,
+          "n": 7,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7961166989641515,
+          "k": 15,
+          "n": 15,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7961166989641515,
+          "k": 15,
+          "n": 15,
+          "value": 1.0
+        }
+      },
+      "path_required_with": {
+        "accuracy": {
+          "ci_high": 0.9999999999999999,
+          "ci_low": 0.9010990076755959,
+          "k": 35,
+          "n": 35,
+          "value": 1.0
+        },
+        "cases": 35,
+        "counts": {
+          "want_not_exercised": 4,
+          "want_obeyed": 16,
+          "want_violated": 15
+        },
+        "evasion_recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.5101091635454027,
+          "k": 4,
+          "n": 4,
+          "value": 1.0
+        },
+        "precision": {
+          "ci_high": 1.0,
+          "ci_low": 0.7961166989641515,
+          "k": 15,
+          "n": 15,
+          "value": 1.0
+        },
+        "recall": {
+          "ci_high": 1.0,
+          "ci_low": 0.7961166989641515,
+          "k": 15,
+          "n": 15,
+          "value": 1.0
+        }
+      }
+    },
+    "split": "heldout"
+  }
+}
