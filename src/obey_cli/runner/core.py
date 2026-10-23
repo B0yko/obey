@@ -11,8 +11,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from obey_cli.runner.agents.base import Adapter, RunContext
-from obey_cli.runner.sandbox import AGENT_HOME, WORK_ROOT, Batch, DockerSandbox
+from obey_cli.runner.agents.base import WORKDIR, Adapter, RunContext
+from obey_cli.runner.local import LocalSandbox
+from obey_cli.runner.sandbox import AGENT_HOME, WORK_ROOT, DockerSandbox
 from obey_cli.runner.workspace import EndState, build_probe_copy, set_origin
 
 HOOK_LOG = f"{AGENT_HOME}/.obey-out/hook-log.jsonl"
@@ -37,11 +38,17 @@ class RunSpec:
 
 
 def execute(
-    adapter: Adapter, spec: RunSpec, *, box: DockerSandbox, batch: Batch, model: str, keep_dir: Path | None = None
+    adapter: Adapter,
+    spec: RunSpec,
+    *,
+    box: DockerSandbox | LocalSandbox,
+    batch: Any,  # Batch for DockerSandbox, LocalBatch for LocalSandbox
+    model: str,
+    keep_dir: Path | None = None,
 ) -> dict[str, Any]:
     started = _dt.datetime.now(_dt.timezone.utc)
     with tempfile.TemporaryDirectory(prefix="obey-run-") as tmp:
-        root = Path(tmp)
+        root = Path(tmp).resolve()
         copy = build_probe_copy(
             spec.source,
             root / "probe",
@@ -52,19 +59,24 @@ def execute(
             with_remote=True,
         )
         set_origin(copy.work, REMOTE)
+        # Without a container the agent sees host paths, and its own sandbox has to be on (see runner/local.py).
+        local = isinstance(box, LocalSandbox)
         ctx = RunContext(
             run_id=spec.run_id,
             model=model,
             gateway_url=batch.gateway_url,
             timeout_s=spec.timeout_s,
             enforced=spec.arm == "enforced",
+            workdir=str(copy.work) if local else WORKDIR,
+            home=str(copy.root / "home") if local else AGENT_HOME,
+            local=local,
         )
         inv = adapter.invocation(spec.prompt, ctx)
-        inv.env["OBEY_HOOK_LOG"] = HOOK_LOG
+        inv.env["OBEY_HOOK_LOG"] = f"{ctx.home}/.obey-out/hook-log.jsonl" if local else HOOK_LOG
         raw = box.run(batch, copy.root, inv, root / "out", spec.run_id, base_sha=copy.base_sha)
         stream = _read(raw.out_dir / "stream.jsonl")
         stderr = _read(raw.out_dir / "stderr.log")
-        parsed = adapter.parse(stream, stderr)
+        parsed = adapter.parse(stream, stderr, ctx.workdir)
         end_state = json.loads(_read(raw.out_dir / "end-state.json") or "{}")
         state = EndState(
             diff=str(end_state.get("diff", "")),

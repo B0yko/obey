@@ -9,8 +9,10 @@ reach the network. Probes for "never commit" and "never push" are refused in thi
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import signal
 import subprocess
 import tempfile
 import threading
@@ -105,23 +107,28 @@ class LocalSandbox:
         out.mkdir(parents=True, exist_ok=True)
         started = time.monotonic()
         timed_out = False
+        (home / ".obey-out").mkdir(exist_ok=True)
+        code: int | None = None
         with (out / "stream.jsonl").open("wb") as stdout, (out / "stderr.log").open("wb") as stderr:
+            # A session of its own, so a timeout (or the end of the run) also stops what the agent left running.
+            proc = subprocess.Popen(
+                inv.argv,
+                cwd=work,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=stdout,
+                stderr=stderr,
+                start_new_session=True,
+            )
             try:
-                proc = subprocess.run(
-                    inv.argv,
-                    cwd=work,
-                    env=env,
-                    stdin=subprocess.DEVNULL,
-                    stdout=stdout,
-                    stderr=stderr,
-                    timeout=inv.timeout_s,
-                    check=False,
-                )
-                code: int | None = proc.returncode
+                code = proc.wait(timeout=inv.timeout_s)
             except subprocess.TimeoutExpired:
-                timed_out, code = True, None
+                timed_out = True
+            finally:
+                _kill_group(proc)
         duration = time.monotonic() - started
-        (out / "exit_code").write_text(str(code), encoding="utf-8")
+        if code is not None:
+            (out / "exit_code").write_text(str(code), encoding="utf-8")
         if base_sha:
             state = collect_end_state(work, base_sha, None)
             (out / "end-state.json").write_text(
@@ -151,3 +158,10 @@ class LocalSandbox:
 
     def stop_batch(self, batch: LocalBatch) -> None:
         batch.server.shutdown()
+        batch.server.server_close()
+
+
+def _kill_group(proc: subprocess.Popen[bytes]) -> None:
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(proc.pid, signal.SIGKILL)
+    proc.wait()

@@ -156,45 +156,50 @@ class DockerSandbox:
             network=f"obey-net-{tag}", sidecar=f"obey-gw-{tag}", image=self.image, allow_hosts=list(allow_hosts)
         )
         _docker("network", "create", "--internal", batch.network)
-        args = ["--model", model] if model else []
-        for name, value in price.items():
-            args += [f"--price-{name.replace('_', '-')}", str(value)]
-        if run_cap is not None:
-            args += ["--run-cap", str(run_cap)]
-        if budget is not None:
-            args += ["--budget", str(budget)]
-        for api, url in (upstreams or {}).items():
-            args += ["--upstream", f"{api}={url}"]
-        for host in allow_hosts:
-            args += ["--allow", host]
-        _docker(
-            "create",
-            "--name",
-            batch.sidecar,
-            "--network",
-            "bridge",
-            "--entrypoint",
-            "python3",
-            "-e",
-            "OBEY_UPSTREAM_KEY",
-            "--cpus",
-            "1",
-            "--memory",
-            "512m",
-            "--pids-limit",
-            "256",
-            self.image,
-            f"{AGENT_HOME}/sidecar/sidecar.py",
-            *args,
-            env={"OBEY_UPSTREAM_KEY": key},
-        )
-        here = Path(__file__).parent
-        files = {f"sidecar/{name}": (here / name).read_bytes() for name in SIDECAR_FILES}
-        _docker("cp", "-a", "-", f"{batch.sidecar}:{AGENT_HOME}", input_bytes=tar_tree(files))
-        _docker("network", "connect", "--alias", GATEWAY_HOST, batch.network, batch.sidecar)
-        _docker("start", batch.sidecar)
-        batch.started = True
-        self._wait_ready(batch)
+        # The sidecar's configuration holds the key: never leave it behind when the batch fails to start.
+        try:
+            args = ["--model", model] if model else []
+            for name, value in price.items():
+                args += [f"--price-{name.replace('_', '-')}", str(value)]
+            if run_cap is not None:
+                args += ["--run-cap", str(run_cap)]
+            if budget is not None:
+                args += ["--budget", str(budget)]
+            for api, url in (upstreams or {}).items():
+                args += ["--upstream", f"{api}={url}"]
+            for host in allow_hosts:
+                args += ["--allow", host]
+            _docker(
+                "create",
+                "--name",
+                batch.sidecar,
+                "--network",
+                "bridge",
+                "--entrypoint",
+                "python3",
+                "-e",
+                "OBEY_UPSTREAM_KEY",
+                "--cpus",
+                "1",
+                "--memory",
+                "512m",
+                "--pids-limit",
+                "256",
+                self.image,
+                f"{AGENT_HOME}/sidecar/sidecar.py",
+                *args,
+                env={"OBEY_UPSTREAM_KEY": key},
+            )
+            here = Path(__file__).parent
+            files = {f"sidecar/{name}": (here / name).read_bytes() for name in SIDECAR_FILES}
+            _docker("cp", "-a", "-", f"{batch.sidecar}:{AGENT_HOME}", input_bytes=tar_tree(files))
+            _docker("network", "connect", "--alias", GATEWAY_HOST, batch.network, batch.sidecar)
+            _docker("start", batch.sidecar)
+            batch.started = True
+            self._wait_ready(batch)
+        except BaseException:
+            self.stop_batch(batch)
+            raise
         return batch
 
     def _wait_ready(self, batch: Batch, timeout_s: float = 30) -> None:
@@ -281,10 +286,11 @@ class DockerSandbox:
             out_dir.mkdir(parents=True, exist_ok=True)
             if copy_back_work:
                 _extract(_docker("cp", f"{name}:{WORK_ROOT}", "-", timeout=300).stdout, out_dir)
-            _extract(_docker("cp", f"{name}:{AGENT_HOME}/.obey-out", "-", timeout=120).stdout, out_dir)
+            _extract(_docker("cp", f"{name}:{AGENT_HOME}/.obey-out", "-", timeout=120).stdout, out_dir, files_only=True)
             code_file = out_dir / ".obey-out" / "exit_code"
             exit_code = int(code_file.read_text().strip()) if code_file.exists() else None
-            if exit_code == 124:
+            # GNU timeout exits 124, or 137 when the agent ignored TERM and was killed after the grace period.
+            if exit_code == 124 or (exit_code == 137 and duration >= inv.timeout_s):
                 timed_out = True
             return RawRun(
                 root=out_dir / "obey" if copy_back_work else None,
@@ -321,6 +327,11 @@ def _safe_member(member: tarfile.TarInfo, dest: str) -> tarfile.TarInfo | None:
         return None
 
 
-def _extract(archive: bytes, dest: Path) -> None:
+def _files_only(member: tarfile.TarInfo, dest: str) -> tarfile.TarInfo | None:
+    # The run's output directory holds only regular files: links and devices are dropped before the data filter.
+    return _safe_member(member, dest) if member.isfile() or member.isdir() else None
+
+
+def _extract(archive: bytes, dest: Path, *, files_only: bool = False) -> None:
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r") as tar:
-        tar.extractall(dest, filter=_safe_member)  # noqa: S202 - members pass tarfile's data filter
+        tar.extractall(dest, filter=_files_only if files_only else _safe_member)  # noqa: S202 - filtered members
