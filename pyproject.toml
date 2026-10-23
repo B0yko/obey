@@ -74,6 +74,7 @@ ignore = ["S101", "S603", "S607", "S404", "RUF001", "RUF002", "RUF003", "PTH123"
 "src/obey_cli/enforce/templates/**" = ["UP", "PTH"]
 "src/obey_cli/runner/gateway.py" = ["UP", "PTH"]
 "src/obey_cli/runner/egress_proxy.py" = ["UP", "PTH"]
+"src/obey_cli/runner/sidecar.py" = ["UP", "PTH", "E402"]
 
 [tool.mypy]
 strict = true
@@ -81,7 +82,7 @@ python_version = "3.10"
 files = ["src/obey_cli"]
 
 [[tool.mypy.overrides]]
-module = ["matplotlib.*", "numpy.*"]
+module = ["matplotlib.*", "numpy.*", "egress_proxy", "gateway"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
