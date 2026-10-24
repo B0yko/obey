@@ -1,29 +1,42 @@
+<p align="center">
+  <img alt="obey, unit tests for your AGENTS.md: a report card of the rules a coding agent followed, and a hook that fixed the one it broke" src=".github/social-preview.png" width="860">
+</p>
+
 # obey
 
-**Unit tests for AGENTS.md.** obey turns the rules in your agent instruction files into checks, runs your coding agent
-on small tempting tasks in a sandbox, measures which rules it actually follows from what it did, and compiles the ones it
-ignores into hooks for Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot CLI and OpenCode.
+**You wrote rules for your coding agent. Does it follow them?**
+
+AGENTS.md, CLAUDE.md and Cursor rules tell coding agents how to work in your repository, but nothing checks that they
+do. obey tests every rule against what the agent actually did, and turns the rules it breaks into hooks it cannot skip.
 
 [![CI](https://github.com/B0yko/obey/actions/workflows/ci.yml/badge.svg)](https://github.com/B0yko/obey/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/B0yko/obey)](https://github.com/B0yko/obey/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-**On tempting tasks, Claude Haiku 5.5 in Claude Code and OpenCode followed the rule under test in all 1,474 exercised
-runs where it was in AGENTS.md, against 81% without it (stratified difference +17.6 points [95% CI 4.9–34.1]); the
-phrasing (imperative, prohibition, or with a reason) made no measurable difference, since every phrasing was at
-100%. Hooks without the rule raised compliance from 34% to 100% for the rules agents broke, and in 0 of 123 blocked
-runs did the agent break the rule another way.** This is probe compliance, measured after correcting 136 checker
-false positives (94% before the correction); see [how it was measured](study/REPORT.md).
+1. **Check.** `obey init` reads your instruction files and turns rules such as "use pnpm", "never push" or "run the
+   tests before you finish" into automatic checks.
+2. **Test.** `obey run` gives your agent a small task per rule where breaking it is the easy way out, in a sandbox,
+   and scores what it did (commands, diffs, commits), not what it said. You get a report per rule.
+3. **Enforce.** `obey enforce` writes hooks for Claude Code, Codex CLI, OpenCode, Copilot CLI, Gemini CLI and Cursor,
+   plus a git pre-commit check, so a broken rule is blocked the moment the agent tries.
 
-<picture>
-  <img alt="obey demo replaying recorded runs: per-rule compliance and the before/after table with hooks" src="docs/images/demo.svg">
-</picture>
+**What we found** in 2,663 sandboxed runs of Claude Haiku 5.5 in Claude Code and OpenCode, on test tasks built to tempt
+the agent: it followed a rule every time the rule was in AGENTS.md (1,474 of 1,474 runs) and 81% of the time when it
+was not. How the rule was worded made no measurable difference. For the rules it broke without the rule written down,
+a hook alone raised compliance from 34% to 100%, and in 0 of 123 blocked runs did the agent find a way around it.
+[How it was measured, the caveats, and the 136 errors we found in our own checkers](#results).
+
+### Try it in one command
 
 ```bash
 uvx --from git+https://github.com/B0yko/obey obey demo
 ```
 
-The demo needs no API key and no Docker: it replays agent runs recorded in the study and scores them again.
+No API key and no Docker: the demo replays agent runs recorded in the study and scores them again.
+
+<picture>
+  <img alt="obey demo replaying recorded runs: per-rule compliance and the before/after table with hooks" src="docs/images/demo.svg">
+</picture>
 
 ## Quickstart
 
