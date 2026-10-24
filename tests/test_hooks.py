@@ -452,3 +452,49 @@ def test_pre_commit_blocks_when_installed_as_a_symlink(repo: Path) -> None:
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     direct = subprocess.run([PY, str(script)], cwd=repo, capture_output=True, text=True)
     assert direct.returncode == 1 and "obey: commit blocked" in direct.stderr
+
+
+def test_git_hooks_ignore_obeys_own_files_and_check_messages_through_the_symlink(tmp_path: Path) -> None:
+    root = tmp_path / "r"
+    (root / "src").mkdir(parents=True)
+    (root / "src" / "a.py").write_text("x = 1\n")
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@e",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@e",
+    }
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "feat: init"], cwd=root, env=env, check=True)
+    rules = [
+        {
+            "id": "no-import",
+            "text": "No imports.",
+            "source": {"file": "AGENTS.md", "lines": [1, 1]},
+            "checker": {"type": "content_forbidden_added", "params": {"regex": "^import ", "globs": ["**/*.py"]}},
+        },
+        {
+            "id": "cc",
+            "text": "Conventional Commits.",
+            "source": {"file": "AGENTS.md", "lines": [2, 2]},
+            "checker": {"type": "commit_message", "params": {"regex": "^(feat|fix|chore)(\\(.+\\))?: \\S"}},
+        },
+    ]
+    plan_enforce(root, rules, ["claude", "precommit"]).apply()
+    for name in ("pre-commit", "commit-msg"):
+        (root / ".git" / "hooks" / name).symlink_to("../../.obey/pre-commit")
+
+    def commit(message: str) -> subprocess.CompletedProcess[str]:
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+        return subprocess.run(["git", "commit", "-qm", message], cwd=root, env=env, capture_output=True, text=True)
+
+    # The engine under .obey/ has imports, but obey's own files are not checked against the rules.
+    assert commit("chore: add obey enforcement").returncode == 0
+    (root / "src" / "b.py").write_text("y = 2\n")
+    bad = commit("added b")
+    assert bad.returncode != 0 and "Conventional Commits" in bad.stderr, bad.stderr
+    assert commit("feat: add b").returncode == 0
+    (root / "src" / "c.py").write_text("import os\n")
+    assert commit("feat: add c").returncode != 0

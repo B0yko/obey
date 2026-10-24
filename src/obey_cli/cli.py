@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -194,3 +195,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except KeyboardInterrupt:
         _err("interrupted")
         return 130
+    except BrokenPipeError:
+        # `obey enforce --dry-run | head`: the reader went away; stop quietly, as other command-line tools do.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        return 141

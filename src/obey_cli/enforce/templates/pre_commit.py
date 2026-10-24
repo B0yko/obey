@@ -48,6 +48,18 @@ STAGED_TYPES = {
 }
 
 
+# Files `obey enforce` writes: they quote the rules and the engine's own code, so they are not checked against them.
+OWN = (
+    ".obey",
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    ".cursor/hooks.json",
+    ".gemini/settings.json",
+    ".github/hooks/obey.json",
+    ".opencode/plugins/obey.ts",
+)
+
+
 def _git(*args):
     out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, timeout=30, check=False)
     return out.stdout.decode("utf-8", "replace")
@@ -78,7 +90,9 @@ def main(argv):
         else:
             run = {
                 "events": [],
-                "diff": _git("diff", "--cached", "--no-color", "--no-ext-diff"),
+                "diff": _git(
+                    "diff", "--cached", "--no-color", "--no-ext-diff", "--", ".", *[":(exclude)" + p for p in OWN]
+                ),
                 "base_files": [p for p in _git("ls-files", "-z").split("\0") if p],
                 "commits": [],
                 "pushed_refs": [],
