@@ -165,6 +165,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--slots", default=None)
     p.add_argument("--harnesses", default=None)
     p.add_argument("--estimate", action="store_true")
+    p.add_argument(
+        "--from-condition",
+        choices=["imperative", "prohibition", "reason", "baseline"],
+        default="imperative",
+        help="enforce: re-run the cells violated in this condition, in this condition, with hooks",
+    )
+    p.add_argument("--verdicts", default=None, help="enforce: main-grid summaries that select the cells")
 
     p = add("precommit", "run .obey/pre-commit (for the pre-commit framework)", c.cmd_precommit)
     p.add_argument("--commit-msg", action="store_true", help="check the commit message file instead of staged files")

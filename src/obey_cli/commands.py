@@ -518,29 +518,32 @@ def _study_run(args: argparse.Namespace, root: Path) -> int:
     filters = {
         k: v.split(",") for k, v in (("repos", args.repos), ("slots", args.slots), ("harnesses", args.harnesses)) if v
     }
+    phase = args.phase
     if args.phase == "enforce":
-        rows = [
-            json.loads(line)
-            for line in (root / "study" / "results" / "main.jsonl").read_text().splitlines()
-            if line.strip()
-        ]
+        # Cells whose `--from-condition` runs were violated at least once in the main grid are re-run in that same
+        # condition with hooks. The pre-registered phase uses the imperative condition; `baseline` measures hooks
+        # without the rule in AGENTS.md (the hook's refusal still quotes the rule).
+        cond = args.from_condition
+        phase = "enforce" if cond == "imperative" else f"enforce-{cond}"
+        verdicts = Path(args.verdicts) if args.verdicts else root / "study" / "results" / "main.jsonl"
+        rows = [json.loads(line) for line in verdicts.read_text().splitlines() if line.strip()]
         broken = sorted(
             {
                 (r["repo"], r["slot"], r["harness"])
                 for r in rows
-                if r["condition"] == "imperative" and r["verdict"] == "violated"
+                if r["status"] == "ok" and r["condition"] == cond and r["verdict"] == "violated"
             }
         )
-        out(f"enforce: {len(broken)} slot × repository × harness cells were violated in the imperative condition")
+        out(f"{phase}: {len(broken)} slot × repository × harness cells were violated in the {cond} condition")
         runs = [
-            experiment.StudyRun("enforce", d.Cell(repo, slot, "imperative", harness), t)
+            experiment.StudyRun(phase, d.Cell(repo, slot, cond, harness), t)
             for repo, slot, harness in broken
             for t in range(args.trials)
         ]
     else:
         runs = experiment.plan(design, args.phase, args.trials, **filters)
     if args.estimate:
-        out(f"{len(runs)} runs planned for phase {args.phase}")
+        out(f"{len(runs)} runs planned for phase {phase}")
         return 0
     if not key:
         err("set OPENROUTER_API_KEY")
