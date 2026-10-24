@@ -1,7 +1,7 @@
 [project]
 name = "obey-cli"
 version = "0.1.1"
-description = "Unit tests for AGENTS.md: turns agent instructions into checkable rules, runs your coding agent on tempting tasks in a sandbox, measures per-rule compliance from what it actually did, and compiles the rules it ignores into hooks."
+description = "Unit tests for AGENTS.md: find out which rules your coding agent actually follows, and turn the ones it breaks into hooks it cannot skip."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
