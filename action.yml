@@ -13,7 +13,7 @@ inputs:
     default: "."
   obey-version:
     description: obey version to install (a git tag of github.com/B0yko/obey)
-    default: v0.1.0
+    default: v0.1.1
   agent:
     description: "run mode: agent to run (claude-code, codex, opencode, copilot, gemini)"
     default: claude-code

@@ -5,7 +5,7 @@
 
 ```yaml
 version: 1
-generated_by: obey 0.1.0
+generated_by: obey 0.1.1
 sources:                       # instruction files at extraction time; obey lint re-checks their hashes
   - file: AGENTS.md
     sha256: 3b1f…

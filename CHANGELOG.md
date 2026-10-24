@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog, and the project uses
 semantic versioning.
 
+## [0.1.1] - 2026-10-24
+
+Documentation and packaging only; the CLI, the checkers and the hooks behave as in 0.1.0.
+
+- The README opens with what obey is for and how to try it, installs from PyPI (`uvx --from obey-cli obey demo`),
+  and uses absolute image and link URLs, so it also renders on PyPI.
+- A new social preview, built from the study's numbers by `eval/make_social_preview.py`.
+- Release assets are only the wheel and the sdist; study charts are written with stable element ids, so rebuilding
+  them changes no bytes.
+
 ## [0.1.0] - 2026-10-24
 
 First release.

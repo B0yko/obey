@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: B0yko/obey@v0.1.0
+      - uses: B0yko/obey@v0.1.1
 ```
 
 `mode: run` (with `api-key`, `model` and `budget`) runs the agent; it spends money and needs a secret, so the action
@@ -170,7 +170,7 @@ refuses it on pull requests: run it on `workflow_dispatch` or a schedule only.
 # .pre-commit-config.yaml (after `obey enforce --targets precommit`)
 repos:
   - repo: https://github.com/B0yko/obey
-    rev: v0.1.0
+    rev: v0.1.1
     hooks:
       - id: obey
       - id: obey-commit-msg
