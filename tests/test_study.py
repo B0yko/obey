@@ -96,3 +96,45 @@ def test_trials_needed_formula() -> None:
     plan = analysis.trials_needed(pilot)
     assert 0.55 <= plan["p1"] <= 0.95 and plan["trials_per_cell"] >= 1
     assert plan["n_arm"] > 100
+
+
+def test_report_shows_both_verdict_sets_and_the_replacement_enforcement(tmp_path: Path) -> None:
+    import json
+
+    from obey_cli.study.report import write_report
+
+    def row(phase: str, cond: str, verdict: str, trial: int, harness: str = "claude-code", denied: int = 0) -> str:
+        return json.dumps(
+            {
+                "key": f"{phase}|r|s|{cond}|{harness}|{trial}",
+                "run_id": f"{phase}-{cond}-{harness}-{trial}",
+                "phase": phase,
+                "repo": "r",
+                "slot": "s",
+                "condition": cond,
+                "harness": harness,
+                "trial": trial,
+                "status": "ok",
+                "verdict": verdict,
+                "denied": denied,
+                "cost_usd": 0.01,
+                "model": "m",
+                "agent_version": "1",
+                "started_at": "2026-10-24T00:00:00+00:00",
+            }
+        )
+
+    results = tmp_path / "study" / "results"
+    results.mkdir(parents=True)
+    conds = ("baseline", "imperative", "prohibition", "reason")
+    main = [row("main", c, "violated" if c == "baseline" and t < 3 else "obeyed", t) for c in conds for t in range(4)]
+    (results / "main.jsonl").write_text("\n".join(main) + "\n")
+    (results / "main.rescored.jsonl").write_text("\n".join(main) + "\n")
+    after = [row("enforce-baseline", "baseline", "violated" if t == 0 else "obeyed", t, denied=1) for t in range(4)]
+    (results / "enforce-baseline.jsonl").write_text("\n".join(after) + "\n")
+    write_report(tmp_path, charts=False)
+    report = (tmp_path / "study" / "REPORT.md").read_text()
+    assert "| Condition | Registered | Corrected |" in report
+    assert "### Part 3b: hooks without the rule in AGENTS.md" in report
+    assert "- Before: 25% [5–70] of exercised runs." in report
+    assert "Evasions: 1 of 4 runs" in report

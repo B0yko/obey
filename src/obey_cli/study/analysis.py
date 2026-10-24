@@ -199,6 +199,25 @@ def analyse(
     }
 
 
+def enforcement_contrast(
+    before: Sequence[Mapping[str, Any]], after: Sequence[Mapping[str, Any]], permutations: int = PERMUTATIONS
+) -> dict[str, Any]:
+    """Compliance with hooks minus compliance before, weighted within slot × repository × harness × condition cells,
+    with the stratified permutation test of the main analysis."""
+    groups: dict[tuple[str, ...], tuple[list[int], list[int]]] = defaultdict(lambda: ([], []))
+    for side, rows in ((0, after), (1, before)):
+        for r in rows:
+            if r.get("status") == "ok" and r["verdict"] != "not_exercised":
+                cell = (r["slot"], r["repo"], r["harness"], r["condition"])
+                groups[cell][side].append(1 if r["verdict"] == "obeyed" else 0)
+    usable = {k: v for k, v in groups.items() if v[0] and v[1]}
+    return {
+        "effect": stratified_difference(usable),
+        "p": permutation_p(usable, permutations),
+        "cells": len(usable),
+    }
+
+
 def trials_needed(
     pilot_rows: Sequence[Mapping[str, Any]],
     *,
