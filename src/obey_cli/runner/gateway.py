@@ -415,6 +415,20 @@ class Handler(BaseHTTPRequestHandler):
         started = False  # response headers are on the wire, so a failure can no longer become a 502
         streaming = False
         collected = b""
+        settled = False
+
+        def settle() -> None:
+            # Record the call before the response ends, so the client's next request sees this cost in the caps.
+            nonlocal settled
+            if settled:
+                return
+            settled = True
+            if not streaming and collected:
+                with contextlib.suppress(ValueError):
+                    meter.feed_json(json.loads(collected))
+            if method == "POST" and (any(meter.usage.values()) or meter.cost):
+                self.config.record(run_id, requested, meter.usage, meter.cost)
+
         try:
             conn.request(method, path, body=body if method == "POST" else None, headers=headers)
             resp = conn.getresponse()
@@ -441,9 +455,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.flush()
             if resp.length:  # read1 does not notice an upstream that closed before its Content-Length
                 raise http.client.IncompleteRead(b"", resp.length)
+            settle()
             self.wfile.write(b"0\r\n\r\n")
         except (OSError, http.client.HTTPException) as exc:
             self.close_connection = True
+            settle()
             with contextlib.suppress(OSError):
                 if started:  # end the chunked body here instead of writing a second response into it
                     self.wfile.write(b"0\r\n\r\n")
@@ -451,11 +467,7 @@ class Handler(BaseHTTPRequestHandler):
                     self._reply(502, {"error": {"message": f"upstream error: {type(exc).__name__}"}})
         finally:
             conn.close()
-            if not streaming and collected:
-                with contextlib.suppress(ValueError):
-                    meter.feed_json(json.loads(collected))
-            if method == "POST" and (any(meter.usage.values()) or meter.cost):
-                self.config.record(run_id, requested, meter.usage, meter.cost)
+            settle()
 
 
 def make_server(listen: str, config: Config) -> ThreadingHTTPServer:

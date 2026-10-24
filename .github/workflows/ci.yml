@@ -50,11 +50,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        id: py39
-        with:
-          python-version: "3.9"
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - name: Python 3.9 (setup-python has no 3.9 build for the current Ubuntu image)
+        id: py39
+        run: |
+          uv python install 3.9
+          echo "python-path=$(uv python find 3.9)" >> "$GITHUB_OUTPUT"
       - run: uv sync --python 3.12
       - name: Hook contract tests with Python 3.9 running the hooks
         env:
@@ -86,7 +87,7 @@ jobs:
           clean/bin/obey demo
           clean/bin/python -I -c "from obey_cli.resources import schema, data_path; \
           [schema(n) for n in ('report-v1.json', 'obey-config-v1.json', 'survey-record-v1.json')]; \
-          assert data_path('demo', 'runs', 'before.jsonl').exists(); assert data_path('demo', 'repo', 'AGENTS.md').exists()"
+          assert data_path('demo', 'runs', 'before.jsonl.gz').exists(); assert data_path('demo', 'repo', 'AGENTS.md').exists()"
           cp -R "$(clean/bin/python -I -c 'from obey_cli.resources import data_path; print(data_path("demo", "repo"))')" demo-repo
           cd demo-repo && git init -q && git add -A && "$RUNNER_TEMP"/clean/bin/obey init && "$RUNNER_TEMP"/clean/bin/obey lint
 
