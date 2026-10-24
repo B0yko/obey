@@ -9,11 +9,11 @@ ignores into hooks for Claude Code, Codex CLI, Cursor, Gemini CLI, Copilot CLI a
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 **On tempting tasks, Claude Haiku 5.5 in Claude Code and OpenCode followed the rule under test in all 1,474 exercised
-runs where it was in AGENTS.md, against 81% without it (+17.6 points [95% CI 4.9–34.1]); the phrasing (imperative,
-prohibition, or with a reason) made no difference. Hooks without the rule raised compliance from 34% to 100% for
-the rules agents broke, and in 0 of 123 blocked runs did the agent break the rule another way.** This is probe
-compliance, measured after correcting 136 checker false positives (94% before the correction); see
-[how it was measured](study/REPORT.md).
+runs where it was in AGENTS.md, against 81% without it (stratified difference +17.6 points [95% CI 4.9–34.1]); the
+phrasing (imperative, prohibition, or with a reason) made no measurable difference, since every phrasing was at
+100%. Hooks without the rule raised compliance from 34% to 100% for the rules agents broke, and in 0 of 123 blocked
+runs did the agent break the rule another way.** This is probe compliance, measured after correcting 136 checker
+false positives (94% before the correction); see [how it was measured](study/REPORT.md).
 
 <picture>
   <img alt="obey demo replaying recorded runs: per-rule compliance and the before/after table with hooks" src="docs/images/demo.svg">
@@ -59,7 +59,8 @@ uvx --from git+https://github.com/B0yko/obey obey run --model anthropic/claude-h
 ```
 
 On the demo repository (11 checkable rules with probes) this made 44 runs of Claude Code 2.1.309 in 9 min 20 s and
-cost $0.38 (measured on 2026-10-24 on a Mac Studio M4 Max, 128 GB, Docker in colima, 4 runs at a time). It prints
+cost $0.38 (measured on 2026-10-24 on a Mac Studio M4 Max, 128 GB, Docker in colima, 4 runs at a time;
+`eval/results/quickstart-run.json`). It prints
 one line per rule and writes `report.html`, `report.md` and `report.json`. The defaults (5 runs per rule plus 3 with
 the rule removed) double the runs and narrow the intervals.
 
@@ -113,8 +114,9 @@ flowchart LR
 | Hook blocks a shell command | live | live | live | live | contract tests | contract tests |
 | Can block finishing (tests, paired paths) | yes | yes | no (advisory) | yes | yes | no (advisory) |
 
-"Live" means verified with the real CLI in the sandbox (`eval/contract_check.py`); "contract tests" means the generated
-hook was tested against payloads written from the vendor's documentation. Every target also gets the git pre-commit
+"Live" means verified with the real CLI in the sandbox (`eval/contract_check.py`, with a stand-in hook script in the
+files and format `obey enforce` writes); "contract tests" means the generated hook was tested against payloads written
+from the vendor's documentation. Every target also gets the git pre-commit
 check. Codex CLI loads project hooks only after you trust them (`/hooks`); Copilot CLI's prompt mode needs
 `--trust-folder` or `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true`.
 
@@ -165,8 +167,9 @@ The badge: `obey lint` and `obey run` write `obey-badge.json` in the
 
 ## Results
 
-All numbers below come from runs made for this release on 2026-10-23 and 2026-10-24 (Mac Studio M4 Max, 128 GB;
-Docker in colima), with `anthropic/claude-haiku-5.5` through OpenRouter in Claude Code 2.1.309 and OpenCode 1.19.4.
+The study's agent runs were made for this release on 2026-10-23 and 2026-10-24 (UTC) on a Mac Studio M4 Max, 128 GB
+(Docker in colima), with `anthropic/claude-haiku-5.5` through OpenRouter in Claude Code 2.1.309 and OpenCode 1.19.4.
+The survey and the extraction and checker evaluations involve no agent runs.
 Full report: [study/REPORT.md](study/REPORT.md). Pre-registration: [study/PREREGISTRATION.md](study/PREREGISTRATION.md).
 Every change after it: [study/DEVIATIONS.md](study/DEVIATIONS.md).
 
@@ -174,9 +177,10 @@ Every change after it: [study/DEVIATIONS.md](study/DEVIATIONS.md).
 
 - Median 7 rules per file (mean 21.6, 90th percentile 66, max 193); 102 of 600 files contain no directive at all.
 - 23.4% of 12,977 rules are mechanically checkable by obey's deterministic extractor; 19.9% could be enforced before
-  the action by a pre-tool hook, another 3.4% only at stop or commit time. An LLM pass (unreviewed proposals) would
-  raise the checkable share to 49.5%.
-- 13% of the repositories (78) already enforce something mechanically: git hooks in 60, agent hooks in 22.
+  the action by a pre-tool hook, another 3.4% only at stop or commit time. An LLM pass would call more of them
+  checkable, up to 49.5% (unreviewed proposals, so an upper bound).
+- 13% of the repositories (78) have hook configuration in the tree: git hooks (pre-commit, husky, lefthook) in 60,
+  agent hooks in 22. The survey sees the configuration files, not what the hooks check.
 
 ### Does the agent follow the rule, and does phrasing matter? (2,241 runs)
 
@@ -197,19 +201,23 @@ route, not compliance in everyday use.
 | imperative with a reason | 94% [92–96] | 100% [99–100] | 497 of 560 |
 
 - **The rule works when it is there.** With the rule in AGENTS.md the agents broke it in none of 1,474 exercised runs
-  (corrected verdicts); without it, compliance was 81%. Pre-registered test: +17.6 percentage points [95% CI +4.9 to
-  +34.1], p < 0.001. The rules that changed behaviour were the ones agents break by default: commit messages (0% →
-  100%), "leave changes uncommitted" (2% → 100%), "leave pushing to the maintainers" (76% → 100%), and the bans on
-  `print()` and `: any` in new code (88% → 100%). Five of the ten probes tempted nobody: agents followed those rules
-  in every run even when they were absent.
+  (corrected verdicts); without it, compliance was 81%. The pre-registered test on the corrected verdicts:
+  +17.6 percentage points [95% CI +4.9 to +34.1], p < 0.001 (on the verdicts as registered: +20.1 [+6.8 to +36.5]).
+  The rules that changed behaviour were the ones agents break by default: "leave changes uncommitted" (1 of 56 runs
+  without the rule, 168 of 168 with it), "leave pushing to the maintainers" (42 of 55, 168 of 168), Conventional
+  Commit messages (0 of 15 runs that committed without the rule, 20 of 20 with it), and the ban on `print()` in
+  `src/` (21 of 28, all 7 violations by Claude Code; the ban on `: any` was never broken). Five of the ten probes
+  tempted nobody: agents followed those rules in every run even when they were absent.
 - **Phrasing did not matter** on the corrected verdicts: every phrasing was followed in every exercised run. On the
   verdicts as registered, the prohibition scored about 2 points lower (significant after Holm's correction), but every
   violation behind that result was a checker false positive (below).
-- **The checkers were wrong 136 times.** Reading the runs showed two false-positive patterns in the registered
-  checkers: `pnpm install --frozen-lockfile 2>&1` read as adding a package called `2>&1` (109 runs), and the generator
-  of `src/generated/` run through its package script `pnpm gen:types` scored as a hand edit (27 runs). The checkers
-  scored 1.0 precision on the authored held-out cases, which did not contain these forms. Both analyses are in the
-  report; the fixes are in this release.
+- **The checkers were wrong 136 times.** Reading the runs showed three false-positive patterns in the registered
+  checkers: `pnpm install --frozen-lockfile 2>&1` read as adding a package called `2>&1` (109 runs); the generator of
+  `src/generated/` run through its package script `pnpm gen:types` scored as a hand edit (25 runs); and the same
+  generator scored as failed because a later command on its line failed (2 runs). The checkers scored 1.0 precision
+  on the authored held-out cases, which did not contain these forms. All 136 went from violated to obeyed, so the
+  1,474 obeyed runs were also re-checked with simple logic that does not use obey's engine (`eval/audit_obeyed.py`):
+  no missed violation. Both analyses are in the report; the fixes are in this release.
 
 ### Do hooks hold when the rule is not there? (182 runs counted)
 
@@ -225,9 +233,9 @@ rule only when a hook refuses it.
 - In the 13 cells (rule type × repository × agent) that agents broke without the rule, compliance went from 34%
   [27–42] to 100% [97–100] with hooks (+65 points, p < 0.001, stratified permutation test).
 - **Evasions: 0 of 123** runs in which a hook blocked at least once broke the rule another way by the end
-  (0% [0–3]). The agents took the refusal, which quotes the rule, and changed course. In the commit-message cells,
-  12 of 56 runs ended with a conforming commit and 44 with no commit at all; blocked commits and pushes were not
-  retried another way.
+  (0% [0–3]). In the commit-message cells, 12 of 56 runs committed, all with a conforming message (without hooks: 15
+  of 56 committed, none conforming). In 2 of the 13 cells (`git push` and `npm` for Claude Code) no hook fired: the
+  agent did not break the rule in those runs, so their gain is not a hook effect.
 - Because no rule was ever broken while it was in AGENTS.md (corrected verdicts), the pre-registered version of this
   measurement, hooks on top of the rule, had nothing to measure. 28 further runs in two cells that only a checker
   false positive had selected are listed in the report and not counted.
@@ -238,30 +246,33 @@ rule only when a hook refuses it.
   precision 0.96 [0.88–0.98] for active rules; parameters right for 0.77 [0.65–0.85]. On the 25 development files:
   recall 0.98, precision 1.0.
 - Checkers, held-out set of 442 labelled runs (frozen before the checkers existed): precision and recall 1.0 for every
-  type at release; the first evaluation found three bugs (`content_required_added` precision 0.94,
-  `dependency_unchanged` recall 0.94), fixed and listed in `fixtures/checkers/CHANGES.md`. See the false positives
-  above for what authored cases miss.
+  type at release (`dependency_unchanged` accuracy 36 of 37 after a definition change); the first evaluation found
+  three bugs (`content_required_added` precision 0.94, `dependency_unchanged` recall 0.94), fixed and listed in
+  `fixtures/checkers/CHANGES.md`, so the release numbers for those two types are no longer an unbiased estimate. See
+  the false positives above for what authored cases miss.
 - Live checks with the real CLIs in the sandbox: each of Claude Code, Codex CLI, OpenCode and Copilot CLI loaded the
   repository's AGENTS.md, ignored a decoy global instruction file, and was stopped by a pre-tool hook installed in the
-  files and format that `obey enforce` writes (`eval/contract_check.py`, 8 of 8 probes, $0.013). The hooks that
-  `obey enforce` generates ran in the study's enforcement runs for Claude Code and OpenCode. Locally, Claude Code
-  2.1.308 with an `obey enforce` hook was refused `npm install date-fns` in 14 ms and left `~/.claude` untouched
-  (`eval/results/live-claude-code.json`).
-- Hook overhead: each hook call is a fresh Python process. 95th percentile 31 ms with Python 3.14 and 44 ms with
-  macOS's system Python 3.9 (200 calls per agent format, 11 rules, Mac Studio M4 Max, `eval/hook_latency.py`).
-- Cost of the study: $20.22 for 2,663 agent runs (pilot $1.28, main grid $17.05, part 3 $1.88), plus $0.34 for
-  the survey's LLM pass, all metered by obey's gateway.
+  files and format that `obey enforce` writes, with a stand-in hook script (`eval/contract_check.py`, 8 of 8 probes,
+  $0.013, `eval/results/contract-check.json`). The hooks that `obey enforce` generates ran in the study's enforcement
+  runs for Claude Code and OpenCode. Locally, Claude Code 2.1.308 with an `obey enforce` hook was refused
+  `npm install date-fns` in 14 ms, and the hashed files in `~/.claude` (`settings.json` and the plugin files) were
+  unchanged (`eval/results/live-claude-code.json`).
+- Hook overhead: each hook call is a fresh Python process. 95th percentile 31–32 ms with Python 3.14 and 44–45 ms
+  with macOS's system Python 3.9 (200 calls per agent format, 11 rules, Mac Studio M4 Max,
+  `eval/results/hook-latency.json`).
+- Cost of the study: $20.22 for 2,663 agent runs (pilot $1.28, main grid $17.05, part 3 $1.88), metered by obey's
+  gateway, plus $0.34 for the survey's LLM pass, from its own spend ledger.
 
 Reproduce: `uv run obey study report` rebuilds the report and charts from the committed summaries;
 `uv run python eval/rescore.py` re-scores the raw runs (attached to the release); `uv run python eval/run_eval.py`
 re-runs the extraction and checker evaluations. Running the study again needs Docker, an OpenRouter key and about
-$22 (`docs/study.md`).
+$20 of model calls at October 2026 prices (commands in `docs/study.md`).
 
 ## Privacy and security
 
 - **During `obey run`, your repository's tracked files and the probe tasks go to the model provider you configure**
-  (by default OpenRouter, which routes to the model's vendor). `.env` files, ignored files and anything not tracked by
-  git never enter a run.
+  (by default OpenRouter, which routes to the model's vendor). Only files tracked by git enter a run: untracked and
+  ignored files, such as an untracked `.env`, never do; a tracked `.env` would.
 - The key stays in obey's gateway, outside the agent's container; agents get a dummy token. The gateway accepts only
   that token, forwards only the model endpoints of each API, pins the model, and stops a run at its spend cap.
 - Agent containers have no route to the internet except an allow-listing proxy (by default npm, PyPI, Go and crates
@@ -287,9 +298,11 @@ $22 (`docs/study.md`).
   tell phrasings apart for this model and these rules; a model or rule that is broken more often might show a
   difference. Five of the ten probes did not tempt the agent even without the rule.
 - The corrected verdicts were decided after the outcomes were known (study/DEVIATIONS.md). Each correction is a false
-  positive visible in the recorded commands, and the registered analysis is reported next to it.
+  positive visible in the recorded commands, and the registered analysis is reported next to it. Every correction
+  went from violated to obeyed; an independent re-check of the obeyed runs found no missed violation, but it shares
+  the study's view of what each rule means.
 - Checkers can be wrong on real runs in ways authored test cases miss: the study found 136 false positives (6% of
-  runs) in two patterns. Read the evidence obey prints for a violation before acting on it.
+  runs) in three patterns. Read the evidence obey prints for a violation before acting on it.
 - In the enforcement runs the hook's refusal quotes the rule, so "hooks without the rule" still tells the agent the
   rule at the moment it is blocked.
 - Extraction recall on real instruction files is measured only on the authored sets (held-out recall 0.70). Read

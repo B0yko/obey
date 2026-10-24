@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-24",
+  "hardware": "Mac Studio M4 Max, 128 GB (Docker in colima)",
+  "repository": "study/repos/ts-web (the demo repository)",
+  "command": "obey run --model anthropic/claude-haiku-5.5 --trials 3 --baseline-trials 1 --budget 2",
+  "concurrency": 4,
+  "agent": "claude-code",
+  "agent_version": "2.1.309",
+  "runs": 44,
+  "errors": 0,
+  "wall_seconds": 560,
+  "cost_usd": 0.375578
+}

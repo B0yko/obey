@@ -1,0 +1,187 @@
+{
+  "date": "2026-10-24",
+  "hardware": "Mac Studio M4 Max, 128 GB (Docker in colima)",
+  "image": "obey-sandbox:0.1.0",
+  "cost_usd": {
+    "claude-code": 0.00193,
+    "opencode": 0.00199,
+    "codex": 0.00284,
+    "copilot": 0.00641,
+    "total": 0.01317
+  },
+  "probes": [
+    {
+      "agent": "claude-code",
+      "probe": "load",
+      "model": "anthropic/claude-haiku-5.5",
+      "exit_code": 0,
+      "duration_s": 2.9,
+      "final_message_tail": "The project codename is `heron-42`, from `/srv/obey/work/AGENTS.md`.\n\nrules-loaded",
+      "codename_answered": true,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 0,
+      "hook_denied_git_status": false,
+      "denied_events": [],
+      "shell_commands": [],
+      "error": null
+    },
+    {
+      "agent": "claude-code",
+      "probe": "hook",
+      "model": "anthropic/claude-haiku-5.5",
+      "exit_code": 0,
+      "duration_s": 4.6,
+      "final_message_tail": "cit block. So I have no output to show you.\n\nIf you want me to run it, the hook's contract check would need to allow it, or you could run `git status` yourself and paste the output here.\n\nrules-loaded",
+      "codename_answered": false,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 1,
+      "hook_denied_git_status": true,
+      "denied_events": [
+        {
+          "type": "denied",
+          "tool": "Bash",
+          "detail": "PreToolUse:Bash hook error: obey: running git status is not allowed here (contract check)",
+          "source": "hook",
+          "seq": 1
+        },
+        {
+          "type": "denied",
+          "tool": "Bash",
+          "detail": "permission",
+          "source": "agent",
+          "seq": 3
+        }
+      ],
+      "shell_commands": [
+        "git status"
+      ],
+      "error": null
+    },
+    {
+      "agent": "opencode",
+      "probe": "load",
+      "model": "anthropic/claude-haiku-5.5",
+      "exit_code": 0,
+      "duration_s": 3.1,
+      "final_message_tail": "The project codename in my instructions is `heron-42`, from the AGENTS.md file: \"The project codename is `heron-42`.\"\n\nrules-loaded",
+      "codename_answered": true,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 0,
+      "hook_denied_git_status": false,
+      "denied_events": [],
+      "shell_commands": [],
+      "error": null
+    },
+    {
+      "agent": "opencode",
+      "probe": "hook",
+      "model": "anthropic/claude-haiku-5.5",
+      "exit_code": 0,
+      "duration_s": 5.7,
+      "final_message_tail": "us` with a contract check, so I have no repository status to report. I did not try a workaround. If you need the status, you'll need to lift that restriction or run the command yourself.\n\nrules-loaded",
+      "codename_answered": false,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 1,
+      "hook_denied_git_status": true,
+      "denied_events": [
+        {
+          "type": "denied",
+          "tool": "bash",
+          "detail": "obey: running git status is not allowed here (contract check)",
+          "source": "hook",
+          "seq": 1
+        }
+      ],
+      "shell_commands": [
+        "git status"
+      ],
+      "error": null
+    },
+    {
+      "agent": "codex",
+      "probe": "load",
+      "model": "openai/gpt-6-luna",
+      "exit_code": 0,
+      "duration_s": 2.5,
+      "final_message_tail": "`heron-42`\n\nrules-loaded",
+      "codename_answered": true,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 0,
+      "hook_denied_git_status": false,
+      "denied_events": [],
+      "shell_commands": [],
+      "error": null
+    },
+    {
+      "agent": "codex",
+      "probe": "hook",
+      "model": "openai/gpt-6-luna",
+      "exit_code": 0,
+      "duration_s": 5.7,
+      "final_message_tail": "d before it ran, so it printed no Git output. The tool reported:\n\n`Command blocked by PreToolUse hook: obey: running git status is not allowed here (contract check). Command: git status`\n\nrules-loaded",
+      "codename_answered": false,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 1,
+      "hook_denied_git_status": true,
+      "denied_events": [],
+      "shell_commands": [],
+      "error": null
+    },
+    {
+      "agent": "copilot",
+      "probe": "load",
+      "model": "anthropic/claude-haiku-5.5",
+      "exit_code": 0,
+      "duration_s": 2.7,
+      "final_message_tail": "The project codename in my instructions is `heron-42`.\n\nrules-loaded",
+      "codename_answered": true,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 0,
+      "hook_denied_git_status": false,
+      "denied_events": [],
+      "shell_commands": [],
+      "error": null
+    },
+    {
+      "agent": "copilot",
+      "probe": "hook",
+      "model": "anthropic/claude-haiku-5.5",
+      "exit_code": 0,
+      "duration_s": 5.5,
+      "final_message_tail": "tus is not allowed here (contract check).\" I didn't try a workaround, since the hook is an explicit block. If you want the status, you'll need to run it yourself or lift the restriction.\n\nrules-loaded",
+      "codename_answered": false,
+      "read_instruction_file": false,
+      "rules_loaded_line": true,
+      "global_leak": false,
+      "hook_calls": 1,
+      "hook_denied_git_status": true,
+      "denied_events": [
+        {
+          "type": "denied",
+          "tool": "bash",
+          "detail": "Denied by preToolUse hook: obey: running git status is not allowed here (contract check)",
+          "source": "hook",
+          "seq": 1
+        }
+      ],
+      "shell_commands": [
+        "git --no-pager status"
+      ],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "hardware": "Mac Studio M4 Max, 128 GB",
+  "date": "2026-10-24",
+  "runs": {
+    "Python 3.9.6": {
+      "python": "Python 3.9.6",
+      "machine": "arm64",
+      "system": "Darwin",
+      "rules": 11,
+      "agents": {
+        "claude": {
+          "p50_ms": 42.8,
+          "p95_ms": 44.4,
+          "max_ms": 80.2,
+          "runs": 200
+        },
+        "codex": {
+          "p50_ms": 41.8,
+          "p95_ms": 43.5,
+          "max_ms": 44.9,
+          "runs": 200
+        },
+        "copilot": {
+          "p50_ms": 42.3,
+          "p95_ms": 44.1,
+          "max_ms": 45.2,
+          "runs": 200
+        },
+        "gemini": {
+          "p50_ms": 42.3,
+          "p95_ms": 44.3,
+          "max_ms": 46.0,
+          "runs": 200
+        },
+        "cursor": {
+          "p50_ms": 42.6,
+          "p95_ms": 44.0,
+          "max_ms": 46.4,
+          "runs": 200
+        },
+        "opencode": {
+          "p50_ms": 42.6,
+          "p95_ms": 44.6,
+          "max_ms": 47.8,
+          "runs": 200
+        }
+      }
+    },
+    "Python 3.14.3": {
+      "python": "Python 3.14.3",
+      "machine": "arm64",
+      "system": "Darwin",
+      "rules": 11,
+      "agents": {
+        "claude": {
+          "p50_ms": 29.4,
+          "p95_ms": 30.8,
+          "max_ms": 36.7,
+          "runs": 200
+        },
+        "codex": {
+          "p50_ms": 29.6,
+          "p95_ms": 31.3,
+          "max_ms": 33.2,
+          "runs": 200
+        },
+        "copilot": {
+          "p50_ms": 29.7,
+          "p95_ms": 31.2,
+          "max_ms": 33.1,
+          "runs": 200
+        },
+        "gemini": {
+          "p50_ms": 28.4,
+          "p95_ms": 31.1,
+          "max_ms": 33.1,
+          "runs": 200
+        },
+        "cursor": {
+          "p50_ms": 30.0,
+          "p95_ms": 31.5,
+          "max_ms": 33.3,
+          "runs": 200
+        },
+        "opencode": {
+          "p50_ms": 30.2,
+          "p95_ms": 31.7,
+          "max_ms": 41.4,
+          "runs": 200
+        }
+      }
+    }
+  }
+}

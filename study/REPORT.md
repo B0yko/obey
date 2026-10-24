@@ -178,13 +178,13 @@ cells:
   a package called `2>&1`. No ts-web run changed a manifest or added a package. 109 runs (ts-web, all conditions,
   both harnesses). Found after the main grid, while looking at which cells part 3 would select; fixed in `72d18f1`.
 - **b.** The ts-web `path_forbidden` slot allows changes to `src/generated/` made by its generator
-  (`node scripts/gen-types.mjs`). Agents ran the same generator through its package script, `pnpm gen:types`;
-  every one of the 27 runs scored as violated did so, and none edited the generated files by hand. 25 runs. The
-  slot's `allow_via` now also matches the package script (`study/design.yaml`), and `obey extract` adds such
-  aliases for users (`14ad972`).
-- **c.** The same slot required the generator's whole command line to exit 0; in the 2 remaining runs
+  (`node scripts/gen-types.mjs`). Agents ran the same generator through its package script, `pnpm gen:types`, in
+  every one of the 27 runs of this slot scored as violated, and none edited the generated files by hand. For 25 of
+  them the package script was the only reason: the slot's `allow_via` now also matches it (`study/design.yaml`), and
+  `obey extract` adds such aliases for users (`14ad972`).
+- **c.** For the other 2, the slot also required the generator's whole command line to exit 0:
   `pnpm gen:types && …; pnpm lint` failed at lint after the generator had run. A generator that ran now counts
-  (`ffc6813`). 2 runs.
+  (`ffc6813`).
 
 b and c were found after the part 3 runs of deviation 4, while reading why those runs had no hook denials.
 
@@ -195,7 +195,9 @@ b and c were found after the part 3 runs of deviation 4, while reading why those
 - The two analyses agree on H1 and disagree on H2: on the registered verdicts the prohibition phrasing is followed
   about 2 points less often than the other two (significant after Holm's correction); on the corrected verdicts no
   rule was broken in any condition that had the rule, so there is no phrasing difference to find. Every violation
-  behind the registered H2 result is one of the false positives of b.
+  behind the registered H2 result is one of the false positives of b and c.
+- Because every correction went from violated to obeyed, the obeyed runs with the rule present were also re-checked
+  with simple logic that does not use obey's engine (`eval/audit_obeyed.py`): 1,474 runs, no missed violation.
 
 ### 3. Part 3 as registered selected only false positives
 
@@ -235,4 +237,8 @@ hook denied at least once and the rule was still violated by the end state) with
   those of the checkers at the commit that adds this text, read that way; the counts of hook denials come from the
   hooks' own log and are unaffected.
 - Budget: part 3 cost $1.88 in all (the registered phase $0.13, 3a $0.20, 3b $1.56), within its $3 cap.
+
+### Erratum in the pre-registration
+
+Its context paragraph says part 3 is specified in section 9; it is section 10. The registration is left as committed.
 
