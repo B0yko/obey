@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="obey, unit tests for your AGENTS.md: a report card of the rules a coding agent followed, and a hook that fixed the one it broke" src=".github/social-preview.png" width="860">
+  <img alt="obey, unit tests for your AGENTS.md: a report card of the rules a coding agent followed, and a hook that fixed the one it broke" src="https://raw.githubusercontent.com/B0yko/obey/main/.github/social-preview.png" width="860">
 </p>
 
 # obey
@@ -11,7 +11,8 @@ do. obey tests every rule against what the agent actually did, and turns the rul
 
 [![CI](https://github.com/B0yko/obey/actions/workflows/ci.yml/badge.svg)](https://github.com/B0yko/obey/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/B0yko/obey)](https://github.com/B0yko/obey/releases)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/obey-cli)](https://pypi.org/project/obey-cli/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/B0yko/obey/blob/main/LICENSE)
 
 1. **Check.** `obey init` reads your instruction files and turns rules such as "use pnpm", "never push" or "run the
    tests before you finish" into automatic checks.
@@ -29,22 +30,23 @@ a hook alone raised compliance from 34% to 100%, and in 0 of 123 blocked runs di
 ### Try it in one command
 
 ```bash
-uvx --from git+https://github.com/B0yko/obey obey demo
+uvx --from obey-cli obey demo
 ```
 
 No API key and no Docker: the demo replays agent runs recorded in the study and scores them again.
 
 <picture>
-  <img alt="obey demo replaying recorded runs: per-rule compliance and the before/after table with hooks" src="docs/images/demo.svg">
+  <img alt="obey demo replaying recorded runs: per-rule compliance and the before/after table with hooks" src="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/demo.svg">
 </picture>
 
 ## Quickstart
 
-In your repository (Python 3.10+, git, [uv](https://docs.astral.sh/uv/)):
+In your repository (Python 3.10+, git, [uv](https://docs.astral.sh/uv/)). The package on PyPI is `obey-cli`; to get a
+plain `obey` command, install it with `uv tool install obey-cli` or `pipx install obey-cli`.
 
 ```bash
-uvx --from git+https://github.com/B0yko/obey obey init      # extract rules into obey.yaml and create probes
-uvx --from git+https://github.com/B0yko/obey obey lint      # no agent runs: checks rules, hashes, enforcement; writes the badge
+uvx --from obey-cli obey init      # extract rules into obey.yaml and create probes
+uvx --from obey-cli obey lint      # no agent runs: checks rules, hashes, enforcement; writes the badge
 ```
 
 Read `obey.yaml`: every rule has a checker, or a status that says why not (`uncheckable` for rules that need taste,
@@ -52,23 +54,23 @@ Read `obey.yaml`: every rule has a checker, or a status that says why not (`unch
 
 ```bash
 # enforce now, no runs needed: hooks for every agent plus a git pre-commit check
-uvx --from git+https://github.com/B0yko/obey obey enforce --dry-run
-uvx --from git+https://github.com/B0yko/obey obey enforce
+uvx --from obey-cli obey enforce --dry-run
+uvx --from obey-cli obey enforce
 
 # measure: needs Docker (or colima) and an OpenRouter key; the key never enters the sandbox
-uvx --from git+https://github.com/B0yko/obey obey doctor --build-image          # once: the sandbox image, a few GB
+uvx --from obey-cli obey doctor --build-image          # once: the sandbox image, a few GB
 export OPENROUTER_API_KEY=...
-uvx --from git+https://github.com/B0yko/obey obey run --estimate --model anthropic/claude-haiku-5.5
-uvx --from git+https://github.com/B0yko/obey obey run --model anthropic/claude-haiku-5.5 --budget 2
-uvx --from git+https://github.com/B0yko/obey obey enforce --from .obey/report.json   # hooks for the rules it broke
+uvx --from obey-cli obey run --estimate --model anthropic/claude-haiku-5.5
+uvx --from obey-cli obey run --model anthropic/claude-haiku-5.5 --budget 2
+uvx --from obey-cli obey enforce --from .obey/report.json   # hooks for the rules it broke
 cp .obey/report.json before.json
-uvx --from git+https://github.com/B0yko/obey obey run --compare before.json --model anthropic/claude-haiku-5.5
+uvx --from obey-cli obey run --compare before.json --model anthropic/claude-haiku-5.5
 ```
 
 ### Test your AGENTS.md in 10 minutes
 
 ```bash
-uvx --from git+https://github.com/B0yko/obey obey run --model anthropic/claude-haiku-5.5 --trials 3 --baseline-trials 1 --budget 2
+uvx --from obey-cli obey run --model anthropic/claude-haiku-5.5 --trials 3 --baseline-trials 1 --budget 2
 ```
 
 On the demo repository (11 checkable rules with probes) this made 44 runs of Claude Code 2.1.309 in 9 min 20 s and
@@ -133,12 +135,12 @@ from the vendor's documentation. Every target also gets the git pre-commit
 check. Codex CLI loads project hooks only after you trust them (`/hooks`); Copilot CLI's prompt mode needs
 `--trust-folder` or `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true`.
 
-Details, flags and isolation checks: [docs/agents.md](docs/agents.md). Checker definitions:
-[docs/checkers.md](docs/checkers.md). Enforcement targets: [docs/enforce.md](docs/enforce.md).
+Details, flags and isolation checks: [docs/agents.md](https://github.com/B0yko/obey/blob/main/docs/agents.md). Checker definitions:
+[docs/checkers.md](https://github.com/B0yko/obey/blob/main/docs/checkers.md). Enforcement targets: [docs/enforce.md](https://github.com/B0yko/obey/blob/main/docs/enforce.md).
 
 ## Configuration
 
-`obey.yaml` is the reviewed list of rules ([reference](docs/config.md)). Environment variables:
+`obey.yaml` is the reviewed list of rules ([reference](https://github.com/B0yko/obey/blob/main/docs/config.md)). Environment variables:
 
 | Variable | Used by | Meaning |
 |---|---|---|
@@ -183,8 +185,8 @@ The badge: `obey lint` and `obey run` write `obey-badge.json` in the
 The study's agent runs were made for this release on 2026-10-23 and 2026-10-24 (UTC) on a Mac Studio M4 Max, 128 GB
 (Docker in colima), with `anthropic/claude-haiku-5.5` through OpenRouter in Claude Code 2.1.309 and OpenCode 1.19.4.
 The survey and the extraction and checker evaluations involve no agent runs.
-Full report: [study/REPORT.md](study/REPORT.md). Pre-registration: [study/PREREGISTRATION.md](study/PREREGISTRATION.md).
-Every change after it: [study/DEVIATIONS.md](study/DEVIATIONS.md).
+Full report: [study/REPORT.md](https://github.com/B0yko/obey/blob/main/study/REPORT.md). Pre-registration: [study/PREREGISTRATION.md](https://github.com/B0yko/obey/blob/main/study/PREREGISTRATION.md).
+Every change after it: [study/DEVIATIONS.md](https://github.com/B0yko/obey/blob/main/study/DEVIATIONS.md).
 
 ### What public AGENTS.md files say (600 repositories)
 
@@ -202,8 +204,8 @@ phrasings, 14 runs per cell. This is **probe compliance**: on small tasks built 
 route, not compliance in everyday use.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/compliance-by-phrasing-dark.svg">
-  <img alt="Probe compliance by phrasing and harness: about 80% with no rule, 100% with the rule in any phrasing" src="docs/images/compliance-by-phrasing-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/compliance-by-phrasing-dark.svg">
+  <img alt="Probe compliance by phrasing and harness: about 80% with no rule, 100% with the rule in any phrasing" src="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/compliance-by-phrasing-light.svg">
 </picture>
 
 | Condition | As registered | Corrected | Exercised runs |
@@ -239,8 +241,8 @@ git pre-commit check, and the same probes were run again, still without the rule
 rule only when a hook refuses it.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/enforcement-before-after-dark.svg">
-  <img alt="Probe compliance without the rule, before and with hooks, for the five rule types agents broke" src="docs/images/enforcement-before-after-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/enforcement-before-after-dark.svg">
+  <img alt="Probe compliance without the rule, before and with hooks, for the five rule types agents broke" src="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/enforcement-before-after-light.svg">
 </picture>
 
 - In the 13 cells (rule type × repository × agent) that agents broke without the rule, compliance went from 34%
