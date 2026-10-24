@@ -40,7 +40,12 @@ OPENROUTER_API_KEY=... uv run obey study survey --llm --budget 3    # the LLM pa
 OPENROUTER_API_KEY=... uv run obey study run --phase pilot --trials 1 --budget 3
 uv run obey study plan                                             # trials per cell from the pilot
 OPENROUTER_API_KEY=... uv run obey study run --phase main --trials <T> --budget 20
-OPENROUTER_API_KEY=... uv run obey study run --phase enforce --trials 5 --budget 3
+OPENROUTER_API_KEY=... uv run obey study run --phase enforce --trials 5 --budget 3     # part 3 as registered
+# corrected verdicts (study/DEVIATIONS.md, deviation 2), then part 3 as run (deviation 4)
+uv run python eval/rescore.py --ref HEAD --raw raw/main.jsonl --summaries study/results/main.jsonl \
+    --write study/results/main.rescored.jsonl
+OPENROUTER_API_KEY=... uv run obey study run --phase enforce --from-condition baseline \
+    --verdicts study/results/main.rescored.jsonl --trials 14 --budget 2
 uv run obey study report                                           # study/REPORT.md and the charts
 ```
 
@@ -49,12 +54,16 @@ runs are skipped.
 
 ## Part 3: enforcement
 
-Every slot × repository × harness cell that was violated at least once in the imperative condition is compiled into
-hooks for that harness plus the git pre-commit check and re-run with the same probe. Reported: compliance before and
-after, and evasions (runs in which a hook blocked at least once and the rule was still broken by the end).
+As registered, every slot × repository × harness cell that was violated at least once in the imperative condition
+is compiled into hooks for that harness plus the git pre-commit check and re-run with the same probe. Reported:
+compliance before and after, and evasions (runs in which a hook blocked at least once and the rule was still broken
+by the end). With the corrected verdicts no cell with the rule present was ever violated, so part 3 was run on the
+cells violated without the rule (`--from-condition baseline`): hooks, with the rule still left out of AGENTS.md.
+The reasons and the order of events are in `study/DEVIATIONS.md`.
 
 ## Data
 
-- `study/results/*.jsonl`: one summary per run (condition, verdict, evidence kind, hook denials, tokens, cost, time).
+- `study/results/*.jsonl`: one summary per run (condition, verdict, evidence kind, hook denials, tokens, cost, time),
+  with the verdicts recorded when the run finished; `*.rescored.jsonl`: the same runs with the corrected checkers.
 - Raw run records (normalised events, diffs, commits) are attached to the GitHub release as an archive after a scan for
   secrets and paths.
