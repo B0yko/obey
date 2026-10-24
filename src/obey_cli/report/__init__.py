@@ -22,6 +22,7 @@ def build_report(
     cost_usd: float | None = None,
     runs: int = 0,
     before: Sequence[RuleScore] | None = None,
+    before_arm: str = "rule",
     hardware: str | None = None,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
@@ -54,13 +55,14 @@ def build_report(
         "compare": None,
     }
     if before is not None:
-        report["compare"] = compare(before, scores)
+        report["compare"] = compare(before, scores, before_arm)
     return report
 
 
-def compare(before: Iterable[RuleScore], after: Iterable[RuleScore]) -> dict[str, Any]:
-    """Per-rule compliance before enforcement (rule arm) and after (enforced arm), with evasions."""
-    old = {(s.rule_id, s.agent): s for s in before if s.arm == "rule"}
+def compare(before: Iterable[RuleScore], after: Iterable[RuleScore], before_arm: str = "rule") -> dict[str, Any]:
+    """Per-rule compliance before enforcement (`before_arm`: the rule arm, or the no-rule baseline when the enforced
+    runs had no rule either) and after (enforced arm), with evasions."""
+    old = {(s.rule_id, s.agent): s for s in before if s.arm == before_arm}
     new = {(s.rule_id, s.agent): s for s in after if s.arm == "enforced"}
     rows = []
     for key in sorted(set(old) | set(new)):
@@ -81,7 +83,7 @@ def compare(before: Iterable[RuleScore], after: Iterable[RuleScore]) -> dict[str
     afters = list(new.values())
     return {
         "rows": rows,
-        "before": dict(pooled(befores, None, "rule")),
+        "before": dict(pooled(befores, None, before_arm)),
         "after": dict(pooled(afters, None, "enforced")),
     }
 

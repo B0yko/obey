@@ -3,7 +3,8 @@
     uv run python eval/build_demo.py --raw study/results/raw --repo ts-web --harness claude-code
 
 Writes demo/obey.yaml (the repository's rules in their imperative phrasing) and demo/runs/{before,after}.jsonl.gz:
-main-grid runs in the imperative and no-rule conditions, and the enforcement runs, for one repository and harness.
+main-grid runs in the imperative and no-rule conditions, and the part 3b enforcement runs (hooks, rule left out) of
+the rules the agent broke without them, for one repository and harness.
 Command output inside events is shortened; diffs, commits and final messages are kept, because the checkers read them.
 """
 
@@ -21,8 +22,14 @@ from obey_cli.study import design as d
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _rid(value: str) -> str:
+    return value.replace("_", "-")  # obey.yaml ids are lowercase words joined by hyphens
+
+
 def trim(record: dict[str, Any]) -> dict[str, Any]:
     out = {k: v for k, v in record.items() if k not in ("study_key",)}
+    out["rule_id"] = _rid(out["rule_id"])
+    out["probe_id"] = _rid(out.get("probe_id") or "")
     events = []
     for e in record.get("events") or []:
         e = dict(e)
@@ -44,6 +51,9 @@ def main() -> int:
     rules = [d.rule(design, args.repo, slot, "imperative") for slot in design["repos"][args.repo]["slots"]]
     for r in rules:
         r["probes"] = r["probes"][:1]
+        r["id"] = _rid(r["id"])
+        for probe in r["probes"]:
+            probe["id"] = _rid(probe["id"])
     sources = [
         {
             "file": "AGENTS.md",
@@ -69,8 +79,16 @@ def main() -> int:
             if r.get("agent") == args.harness and r["rule_id"].startswith(args.repo + "--") and r.get("status") == "ok"
         ]
 
+    from obey_cli.checkers import check
+
     before = [r for r in load("main") if r.get("condition") in ("imperative", "baseline")]
-    after = load("enforce") if (args.raw / "enforce.jsonl").exists() else []
+    by_id = {r["id"]: r for r in rules}
+    broken = {
+        r["rule_id"]
+        for r in before
+        if r["condition"] == "baseline" and check(by_id[_rid(r["rule_id"])]["checker"], r).verdict == "violated"
+    }
+    after = [r for r in load("enforce-baseline") if r["rule_id"] in broken]
     out = ROOT / "demo" / "runs"
     out.mkdir(parents=True, exist_ok=True)
     for name, rows in (("before", before), ("after", after)):
@@ -87,6 +105,7 @@ def main() -> int:
         "dates": f"{dates[0]} to {dates[-1]}" if dates else "",
         "runs": len(runs),
         "cost_usd": round(sum(r["usage"]["cost_usd"] for r in runs), 4),
+        "compare_with": "baseline",
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({**meta, "before": len(before), "after": len(after)}))

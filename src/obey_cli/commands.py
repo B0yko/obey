@@ -625,6 +625,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
         cost_usd=meta["cost_usd"],
         runs=meta["runs"],
         before=before,
+        before_arm=meta.get("compare_with", "rule"),
     )
     name = AGENT_NAMES.get(meta["agent"], meta["agent"])
     out(
@@ -652,8 +653,12 @@ def cmd_demo(args: argparse.Namespace) -> int:
     rows = [r for r in cmp.get("rows", []) if r["after"] is not None]
     if rows:
         out("")
-        out("With hooks from `obey enforce` (same probes, same agent):")
-        out(f"{'Rule':58s} {'Before':>7s} {'After':>7s} {'Blocked':>8s} {'Evasions':>9s}")
+        if meta.get("compare_with") == "baseline":
+            out("With hooks from `obey enforce` and the rule left out of AGENTS.md (same probes, same agent):")
+            out(f"{'Rule':58s} {'No rule':>7s} {'+hooks':>7s} {'Blocked':>8s} {'Evasions':>9s}")
+        else:
+            out("With hooks from `obey enforce` (same probes, same agent):")
+            out(f"{'Rule':58s} {'Before':>7s} {'After':>7s} {'Blocked':>8s} {'Evasions':>9s}")
         for r in rows:
             before_pct = r["before"] * 100 if r["before"] is not None else 0.0
             text = _cut(rules[r["rule_id"]]["text"], 58)

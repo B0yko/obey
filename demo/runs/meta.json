@@ -1,0 +1,10 @@
+{
+  "agent": "claude-code",
+  "agent_version": "2.1.309",
+  "model": "anthropic/claude-haiku-5.5",
+  "repository": "ts-web (obey demo repository)",
+  "dates": "2026-10-23 to 2026-10-24",
+  "runs": 322,
+  "cost_usd": 3.1117,
+  "compare_with": "baseline"
+}
