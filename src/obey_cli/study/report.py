@@ -78,6 +78,7 @@ def _chart_conditions(rows: list[dict[str, Any]], out: Path) -> list[str]:
     import matplotlib
 
     matplotlib.use("Agg")
+    matplotlib.rcParams["svg.hashsalt"] = "obey"  # stable element ids, so regenerating a chart changes no bytes
     import matplotlib.pyplot as plt
 
     written = []
@@ -120,6 +121,7 @@ def _chart_enforcement(main: list[dict[str, Any]], sets: dict[str, list[dict[str
     import matplotlib
 
     matplotlib.use("Agg")
+    matplotlib.rcParams["svg.hashsalt"] = "obey"  # stable element ids, so regenerating a chart changes no bytes
     import matplotlib.pyplot as plt
 
     rows_spec = []  # (label, before rows, after rows)
