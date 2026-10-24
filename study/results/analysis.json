@@ -1,0 +1,174 @@
+{
+  "n_runs": 2241,
+  "n_exercised": 1962,
+  "excluded": {
+    "not_exercised": 278,
+    "incomplete": 1
+  },
+  "per_condition": {
+    "baseline": {
+      "obeyed": 354,
+      "n": 488,
+      "compliance": 0.7254098360655737,
+      "ci_low": 0.6841670519473331,
+      "ci_high": 0.763131556282038
+    },
+    "imperative": {
+      "obeyed": 472,
+      "n": 499,
+      "compliance": 0.9458917835671342,
+      "ci_low": 0.9224205665601264,
+      "ci_high": 0.9625502173598217
+    },
+    "prohibition": {
+      "obeyed": 440,
+      "n": 478,
+      "compliance": 0.9205020920502092,
+      "ci_low": 0.8927642742015726,
+      "ci_high": 0.941535042805922
+    },
+    "reason": {
+      "obeyed": 469,
+      "n": 497,
+      "compliance": 0.9436619718309859,
+      "ci_low": 0.9197810802253075,
+      "ci_high": 0.9607370802289015
+    }
+  },
+  "exercised_share": {
+    "prohibition": {
+      "exercised": 478,
+      "runs": 560
+    },
+    "baseline": {
+      "exercised": 488,
+      "runs": 560
+    },
+    "reason": {
+      "exercised": 497,
+      "runs": 560
+    },
+    "imperative": {
+      "exercised": 499,
+      "runs": 560
+    }
+  },
+  "rule_present_vs_baseline": {
+    "a": [
+      "imperative",
+      "prohibition",
+      "reason"
+    ],
+    "b": [
+      "baseline"
+    ],
+    "strata": 38,
+    "effect": 0.2009431334314935,
+    "ci_low": 0.06764336008970669,
+    "ci_high": 0.36544526703827135,
+    "p": 9.999000099990002e-05,
+    "a_compliance": {
+      "obeyed": 1381,
+      "n": 1474,
+      "compliance": 0.9369063772048847,
+      "ci_low": 0.9233229669264856,
+      "ci_high": 0.9482184236011654
+    },
+    "b_compliance": {
+      "obeyed": 354,
+      "n": 488,
+      "compliance": 0.7254098360655737,
+      "ci_low": 0.6841670519473331,
+      "ci_high": 0.763131556282038
+    }
+  },
+  "phrasing": [
+    {
+      "a": [
+        "prohibition"
+      ],
+      "b": [
+        "imperative"
+      ],
+      "strata": 36,
+      "effect": -0.022940563086548488,
+      "ci_low": -0.06843418307175905,
+      "ci_high": 0.0,
+      "p": 0.00039996000399960006,
+      "a_compliance": {
+        "obeyed": 440,
+        "n": 478,
+        "compliance": 0.9205020920502092,
+        "ci_low": 0.8927642742015726,
+        "ci_high": 0.941535042805922
+      },
+      "b_compliance": {
+        "obeyed": 472,
+        "n": 499,
+        "compliance": 0.9458917835671342,
+        "ci_low": 0.9224205665601264,
+        "ci_high": 0.9625502173598217
+      },
+      "p_adj": 0.0011998800119988001,
+      "reject": true
+    },
+    {
+      "a": [
+        "reason"
+      ],
+      "b": [
+        "imperative"
+      ],
+      "strata": 38,
+      "effect": -0.002012072434607645,
+      "ci_low": -0.0063694267515923535,
+      "ci_high": 0.0,
+      "p": 1.0,
+      "a_compliance": {
+        "obeyed": 469,
+        "n": 497,
+        "compliance": 0.9436619718309859,
+        "ci_low": 0.9197810802253075,
+        "ci_high": 0.9607370802289015
+      },
+      "b_compliance": {
+        "obeyed": 472,
+        "n": 499,
+        "compliance": 0.9458917835671342,
+        "ci_low": 0.9224205665601264,
+        "ci_high": 0.9625502173598217
+      },
+      "p_adj": 1.0,
+      "reject": false
+    },
+    {
+      "a": [
+        "reason"
+      ],
+      "b": [
+        "prohibition"
+      ],
+      "strata": 36,
+      "effect": 0.02089864158829676,
+      "ci_low": 0.0,
+      "ci_high": 0.06196705426356588,
+      "p": 0.0015998400159984002,
+      "a_compliance": {
+        "obeyed": 469,
+        "n": 497,
+        "compliance": 0.9436619718309859,
+        "ci_low": 0.9197810802253075,
+        "ci_high": 0.9607370802289015
+      },
+      "b_compliance": {
+        "obeyed": 440,
+        "n": 478,
+        "compliance": 0.9205020920502092,
+        "ci_low": 0.8927642742015726,
+        "ci_high": 0.941535042805922
+      },
+      "p_adj": 0.0031996800319968005,
+      "reject": true
+    }
+  ]
+}

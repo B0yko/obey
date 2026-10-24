@@ -75,5 +75,4 @@ hook denied at least once and the rule was still violated by the end state) with
   run. Fixed in `14ad972`; `eval/rescore.py` applies the fixed rule to the recorded events. Part 3's verdicts are
   those of the checkers at the commit that adds this text, read that way; the counts of hook denials come from the
   hooks' own log and are unaffected.
-- Budget: part 3 stays within its $3 cap; 3b's own cap was raised from $2.0 to the remaining part 3 budget when the
-  measured cost per run (about $0.012) turned out higher than the main grid's.
+- Budget: part 3 cost $1.88 in all (the registered phase $0.13, 3a $0.20, 3b $1.56), within its $3 cap.

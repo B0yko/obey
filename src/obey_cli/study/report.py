@@ -96,8 +96,8 @@ def _chart_conditions(rows: list[dict[str, Any]], out: Path) -> list[str]:
                 low, high = wilson(k, n)
                 xs.append(j + (i - 1.5) * width)
                 ys.append(k / n * 100)
-                lo.append(k / n * 100 - low * 100)
-                hi.append(high * 100 - k / n * 100)
+                lo.append(max(0.0, k / n * 100 - low * 100))  # rounding can put a Wilson bound past the estimate
+                hi.append(max(0.0, high * 100 - k / n * 100))
             ax.bar(xs, ys, width * 0.92, color=c["series"][i], label=LABELS[cond], zorder=2)
             ax.errorbar(xs, ys, yerr=[lo, hi], fmt="none", ecolor=c["fg"], elinewidth=1, capsize=2, zorder=3)
         ax.set_xticks(range(len(harnesses)), [HARNESS.get(h, h) for h in harnesses], color=c["fg"])
@@ -123,11 +123,13 @@ def _chart_enforcement(main: list[dict[str, Any]], sets: dict[str, list[dict[str
     import matplotlib.pyplot as plt
 
     rows_spec = []  # (label, before rows, after rows)
-    for name, _, _ in ENFORCE_SETS:
-        after, _ = _measurable(main, sets.get(name) or [])
+    measured = {name: _measurable(main, sets.get(name) or [])[0] for name, _, _ in ENFORCE_SETS}
+    several = sum(bool(v) for v in measured.values()) > 1
+    for name, after in measured.items():
         for slot in sorted({r["slot"] for r in after}):
             mine = [r for r in after if r["slot"] == slot]
-            rows_spec.append((f"{slot.replace('_', ' ')} ({name})", _before(main, mine), mine))
+            label = slot.replace("_", " ") + (f" ({name})" if several else "")
+            rows_spec.append((label, _before(main, mine), mine))
     if not rows_spec:
         return []
     written = []
@@ -152,7 +154,7 @@ def _chart_enforcement(main: list[dict[str, Any]], sets: dict[str, list[dict[str
         ax.grid(axis="x", color=c["grid"], linewidth=0.6, zorder=0)
         for spine in ax.spines.values():
             spine.set_visible(False)
-        ax.legend(frameon=False, labelcolor=c["fg"], loc="lower right")
+        ax.legend(frameon=False, labelcolor=c["fg"], ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.0))
         fig.tight_layout()
         path = out / f"enforcement-before-after-{theme}.svg"
         fig.savefig(path, facecolor=c["bg"], metadata={"Date": None, "Creator": None})
