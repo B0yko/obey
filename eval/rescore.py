@@ -1,6 +1,8 @@
 """Score recorded study runs again with the checkers of another commit, and list the verdicts that change.
 
     uv run python eval/rescore.py --ref 20cef25 --raw raw/main.jsonl --summaries study/results/main.jsonl
+    uv run python eval/rescore.py --ref <commit> --raw raw/main.jsonl --summaries study/results/main.jsonl \
+        --write study/results/main.rescored.jsonl
 
 The study records each run's verdict when the run finishes. This script answers "would the verdicts be the same with
 the checkers as registered?": it exports `src/` and `study/design.yaml` at `--ref` with `git archive`, imports that
@@ -32,7 +34,9 @@ for line in open(sys.argv[2], encoding="utf-8"):
     record = json.loads(line)
     _, repo, slot, condition = record["study_key"].split("|")[:4]
     rule = d.rule(spec, repo, slot, condition)
-    print(json.dumps({"run_id": record["run_id"], "verdict": check(rule["checker"], record).verdict}))
+    v = check(rule["checker"], record)
+    kind = v.evidence[0]["kind"] if v.evidence else None
+    print(json.dumps({"run_id": record["run_id"], "verdict": v.verdict, "evidence_kind": kind}))
 """
 
 
@@ -41,6 +45,7 @@ def main() -> int:
     parser.add_argument("--ref", required=True, help="commit whose checkers score the runs")
     parser.add_argument("--raw", type=Path, required=True, help="raw run records (obey-run-v1, one per line)")
     parser.add_argument("--summaries", type=Path, required=True, help="the run summaries with the recorded verdicts")
+    parser.add_argument("--write", type=Path, help="also write the summaries with the rescored verdicts here")
     args = parser.parse_args()
     recorded = {}
     for line in args.summaries.read_text(encoding="utf-8").splitlines():
@@ -55,8 +60,10 @@ def main() -> int:
             [sys.executable, "-c", SCORER, tmp, str(args.raw)], capture_output=True, text=True, check=True
         ).stdout
     changed = []
+    rescored = {}
     for line in out.splitlines():
         row = json.loads(line)
+        rescored[row["run_id"]] = row
         before = recorded.get(row["run_id"])
         if before is not None and before["verdict"] != row["verdict"]:
             changed.append((before["slot"], before["repo"], before["run_id"], before["verdict"], row["verdict"]))
@@ -66,6 +73,16 @@ def main() -> int:
         print(f"  {slot} / {repo}: {n}")
     for c in changed:
         print(f"  {c[2]}: recorded {c[3]}, at {args.ref} {c[4]}")
+    if args.write:
+        rows = []
+        for line in args.summaries.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            new = rescored.get(row["run_id"])
+            if new is not None and row.get("status") == "ok":
+                row = {**row, "verdict": new["verdict"], "evidence_kind": new["evidence_kind"]}
+            rows.append(json.dumps(row, sort_keys=True))
+        args.write.write_text("\n".join(rows) + "\n", encoding="utf-8")
+        print(f"wrote {args.write}")
     return 0
 
 
