@@ -333,8 +333,8 @@ differ (checked on 2026-10-23):
   than from your instruction file.
 - [nunchi](https://github.com/seob717/nunchi) ([article](https://braindetox.kr/en/posts/claude_md_hooks_compile_2026.html))
   compiles CLAUDE.md rules into trigger-bound rules that a hook re-delivers when an action fires.
-- [agents-md-evals](https://github.com/vltansky/agents-md-evals) A/B tests a Claude instruction file present versus
-  removed, using assertions from the repository's history.
+- [agents-md-evals](https://github.com/vltansky/agents-md-evals) (archived) A/B tests a Claude instruction file
+  present versus removed, using assertions from the repository's history.
 - [ruleProb](https://github.com/canblmz1/ruleProb) extracts rules from CLAUDE.md, AGENTS.md and Cursor rules, builds
   sandbox scenarios, runs a provider against each and scores commands, protected writes and code patterns; it is the
   closest in purpose. obey differs in its probes-as-temptations with a no-rule baseline, per-rule rates with intervals
