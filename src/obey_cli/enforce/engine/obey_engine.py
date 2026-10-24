@@ -1408,6 +1408,10 @@ def install_packages(segment: Dict[str, Any]) -> Tuple[bool, List[str]]:
                 if a in _OPT_WITH_VALUE:
                     skip = True
                     continue
+                redirect = _REDIR_RE.match(a)
+                if redirect:  # `2>&1`, `>/dev/null`, `> install.log`: output handling, never a package
+                    skip = not redirect.group(3)
+                    continue
                 if (
                     a.startswith("-")
                     or a in (".", "./")

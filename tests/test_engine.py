@@ -116,6 +116,11 @@ def test_new_dependencies(path: str, context: list[str], added: list[str], remov
         ("uv run pip install -q httpx", ["httpx"]),
         ("go get github.com/google/uuid@latest", ["github.com/google/uuid"]),
         ("npm install @scope/pkg@2", ["@scope/pkg"]),
+        # Redirections are output handling, not package names (the study's ts-web runs used the first form).
+        ("pnpm install --frozen-lockfile 2>&1", []),
+        ("npm ci >/dev/null 2>&1", []),
+        ("pnpm install > install.log", []),
+        ("pnpm add date-fns 2>&1", ["date-fns"]),
     ],
 )
 def test_install_packages(cmd: str, names: list[str]) -> None:

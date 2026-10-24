@@ -1,6 +1,6 @@
 {
   "dev": {
-    "cases": 261,
+    "cases": 262,
     "frozen_manifest_ok": null,
     "per_type": {
       "command_forbidden": {
@@ -185,16 +185,16 @@
       },
       "dependency_unchanged": {
         "accuracy": {
-          "ci_high": 0.9922833338565469,
-          "ci_low": 0.7900884492974114,
-          "k": 22,
-          "n": 23,
-          "value": 0.9565217391304348
+          "ci_high": 0.9926065438344942,
+          "ci_low": 0.7975819352134406,
+          "k": 23,
+          "n": 24,
+          "value": 0.9583333333333334
         },
-        "cases": 23,
+        "cases": 24,
         "counts": {
           "want_not_exercised": 3,
-          "want_obeyed": 8,
+          "want_obeyed": 9,
           "want_violated": 12
         },
         "evasion_recall": {
