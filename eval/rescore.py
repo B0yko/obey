@@ -4,6 +4,8 @@
     uv run python eval/rescore.py --ref <commit> --raw raw/main.jsonl --summaries study/results/main.jsonl \
         --write study/results/main.rescored.jsonl
 
+Claude Code records are read with the adapter's current refusal rule (see `reread_refusals`).
+
 The study records each run's verdict when the run finishes. This script answers "would the verdicts be the same with
 the checkers as registered?": it exports `src/` and `study/design.yaml` at `--ref` with `git archive`, imports that
 copy in a separate interpreter, rebuilds each run's rule from the design and checks the raw record again.
@@ -30,8 +32,23 @@ from pathlib import Path
 from obey_cli.checkers import check
 from obey_cli.study import design as d
 spec = d.load(Path(sys.argv[1]) / "study" / "design.yaml")
+def reread_refusals(record):
+    # Claude Code's adapter once took any output naming a hook (`cat .claude/settings.json`) for a refusal; apply
+    # today's rule to the recorded events: only a hook's error result ("PreToolUse...", "obey: ...") is one.
+    if record.get("agent") != "claude-code":
+        return record
+    events = list(record.get("events") or [])
+    for i, ev in enumerate(events):
+        if ev.get("type") == "shell" and ev.get("denied"):
+            j = next((k for k in range(i + 1, len(events)) if events[k].get("type") == "denied"), None)
+            detail = str(events[j].get("detail", "")) if j is not None else ""
+            if not (detail.lstrip().startswith(("PreToolUse", "PermissionRequest")) or "obey: " in detail):
+                events[i] = {**ev, "denied": False}
+                if j is not None:
+                    events[j] = {**events[j], "type": "tool_error"}
+    return {**record, "events": events}
 for line in open(sys.argv[2], encoding="utf-8"):
-    record = json.loads(line)
+    record = reread_refusals(json.loads(line))
     _, repo, slot, condition = record["study_key"].split("|")[:4]
     rule = d.rule(spec, repo, slot, condition)
     v = check(rule["checker"], record)
