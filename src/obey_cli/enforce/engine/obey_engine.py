@@ -1547,11 +1547,11 @@ def _check_path_forbidden(params: Dict[str, Any], run: Dict[str, Any]) -> Dict[s
     existing_only = bool(params.get("existing_only"))
     base = set(run.get("base_files") or [])
     exercised = False
-    # Changes made by an allowed command (a generator) are fine; direct edits still violate.
+    # Changes made by an allowed command (a generator) are fine; direct edits still violate. The generator only has
+    # to have run (not been blocked): a command line's exit code belongs to its last command, not to the generator
+    # (`pnpm gen:types && pnpm test; pnpm lint` fails when lint fails).
     allow_via = list(params.get("allow_via") or [])
-    via = allow_via and any(
-        ev.get("exit_code") in (0, None) and matches_command(allow_via, seg) for _, ev, seg in _executed_shell(run)
-    )
+    via = allow_via and any(matches_command(allow_via, seg) for _, ev, seg in _executed_shell(run))
     for seq, raw_path, op in _file_events(run):
         path = _norm_path(raw_path)
         if path == "*" or not glob_match(globs, path):

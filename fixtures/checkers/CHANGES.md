@@ -68,3 +68,13 @@ Checker evaluation with these fixes (`eval/run_eval.py`): the per-type numbers o
 frozen held-out set (442 cases, manifest intact) are identical to `eval/results/checkers.json`; the one
 disagreement in each split is the same as before (`du-lockfile-diff-only`, `du-src-only-change`). Extraction
 numbers are unchanged.
+
+Found while reading the study's results (they also change study verdicts; see `study/DEVIATIONS.md`):
+
+7. A redirection after an install command is not a package name (`pnpm install --frozen-lockfile 2>&1` added a
+   package called `2>&1`).
+8. `allow_via` counts a generator that ran and was not blocked, whatever the exit code of its command line (the
+   exit code belongs to the line's last command: `pnpm gen:types && pnpm test; pnpm lint` fails when lint fails).
+
+Neither changes a dev or held-out number (no held-out case uses `allow_via` or redirects an install); the dev set
+gained one case for item 7 (`du-pnpm-install-frozen-redirect`).

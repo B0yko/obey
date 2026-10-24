@@ -463,3 +463,15 @@ def test_a_megabyte_argument_is_evaluated_quickly() -> None:
         started = time.perf_counter()
         e.evaluate_action(rules, {"kind": "shell", "command": cmd})
         assert time.perf_counter() - started < 1.0
+
+
+def test_allow_via_counts_a_generator_that_ran_even_when_the_line_failed_later() -> None:
+    rule = {"type": "path_forbidden", "params": {"globs": ["src/generated/**"], "allow_via": [r"^pnpm\s+gen:types\b"]}}
+    diff = "diff --git a/src/generated/t.ts b/src/generated/t.ts\n--- a/src/generated/t.ts\n+++ b/src/generated/t.ts\n@@ -1 +1 @@\n-a\n+b\n"
+    ran = {"type": "shell", "command": "pnpm gen:types && pnpm test; pnpm lint", "exit_code": 1}
+    run = {"events": [ran], "diff": diff, "base_files": ["src/generated/t.ts"], "commits": []}
+    assert e.check(rule, run)["verdict"] == "obeyed"
+    blocked = {**ran, "denied": True}
+    assert e.check(rule, {**run, "events": [blocked]})["verdict"] == "violated"
+    hand = {"type": "edit", "path": "src/generated/t.ts", "old": "a", "new": "b"}
+    assert e.check(rule, {**run, "events": [ran, hand]})["verdict"] == "violated"
