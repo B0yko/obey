@@ -124,7 +124,7 @@ def _chart_enforcement(main: list[dict[str, Any]], sets: dict[str, list[dict[str
 
     rows_spec = []  # (label, before rows, after rows)
     for name, _, _ in ENFORCE_SETS:
-        after = sets.get(name) or []
+        after, _ = _measurable(main, sets.get(name) or [])
         for slot in sorted({r["slot"] for r in after}):
             mine = [r for r in after if r["slot"] == slot]
             rows_spec.append((f"{slot.replace('_', ' ')} ({name})", _before(main, mine), mine))
@@ -161,6 +161,12 @@ def _chart_enforcement(main: list[dict[str, Any]], sets: dict[str, list[dict[str
     return written
 
 
+def _phase_rows(results: Path, phase: str) -> list[dict[str, Any]]:
+    """A phase's summaries, rescored with the current checkers when that file exists (study/DEVIATIONS.md)."""
+    rescored = results / f"{phase}.rescored.jsonl"
+    return _rows(rescored if rescored.exists() else results / f"{phase}.jsonl")
+
+
 # Part 3 as run (study/DEVIATIONS.md, deviation 4): the registered phase, then the replacement sets.
 ENFORCE_SETS = (
     ("3a", "rule present, with hooks", ("enforce-prohibition", "enforce-reason")),
@@ -176,9 +182,7 @@ def write_report(root: Path, charts: bool = True) -> str:
     main = _rows(results / "main.jsonl")
     corrected = _rows(results / "main.rescored.jsonl")
     enf = _rows(results / "enforce.jsonl")
-    sets = {
-        name: [r for phase in phases for r in _rows(results / f"{phase}.jsonl")] for name, _, phases in ENFORCE_SETS
-    }
+    sets = {name: [r for phase in phases for r in _phase_rows(results, phase)] for name, _, phases in ENFORCE_SETS}
     survey = (
         json.loads((root / "study" / "survey" / "summary.json").read_text())
         if (root / "study" / "survey" / "summary.json").exists()
@@ -394,6 +398,19 @@ def _cells(rows: list[dict[str, Any]]) -> set[tuple[str, str, str, str]]:
     return {(r["repo"], r["slot"], r["harness"], r["condition"]) for r in rows}
 
 
+def _measurable(
+    main: list[dict[str, Any]], rows: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(runs in cells the main grid's verdicts show violated, the other runs): only those cells measure anything."""
+    broken = {c for c in _cells(rows) if any(r["verdict"] == "violated" for r in _before(main, [_cell_row(c)]))}
+    keep = [r for r in rows if (r["repo"], r["slot"], r["harness"], r["condition"]) in broken]
+    return keep, [r for r in rows if (r["repo"], r["slot"], r["harness"], r["condition"]) not in broken]
+
+
+def _cell_row(cell: tuple[str, str, str, str]) -> dict[str, Any]:
+    return dict(zip(("repo", "slot", "harness", "condition"), cell, strict=True))
+
+
 def _before(main: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[dict[str, Any]]:
     cells = _cells(after)
     return [r for r in main if (r["repo"], r["slot"], r["harness"], r["condition"]) in cells]
@@ -438,15 +455,25 @@ def _enforcement_section(
     )
     out.append("")
     for name, title, _ in ENFORCE_SETS:
-        after = sets.get(name) or []
+        rows = sets.get(name) or []
+        if not rows:
+            continue
+        after, excluded = _measurable(main, rows)
+        out += [f"### Part {name}: {title}", ""]
         if not after:
+            ek, en = _rate(rows)
+            out += [
+                f"None of this set's cells was violated in the main grid once the checker corrections were applied "
+                f"(deviation 5), so it has nothing to measure. For completeness: {len(rows)} runs, {_ci(ek, en)} "
+                "scored compliant.",
+                "",
+            ]
             continue
         before = _before(main, after)
         bk, bn = _rate(before)
         ak, an = _rate(after)
         ev, bl = _evasions(after)
         c = enforcement_contrast(before, after)
-        out += [f"### Part {name}: {title}", ""]
         out += [
             f"- Before: {_ci(bk, bn)} of exercised runs.",
             f"- With hooks: {_ci(ak, an)} of exercised runs; difference {_pp(c)} "
@@ -455,6 +482,14 @@ def _enforcement_section(
             "",
         ]
         out += [*_cell_table(main, after), ""]
+        if excluded:
+            cells = sorted({(r["slot"], r["repo"], HARNESS.get(r["harness"], r["harness"])) for r in excluded})
+            out += [
+                f"Not counted: {len(excluded)} runs in "
+                + ", ".join(f"{slot} ({repo}, {h})" for slot, repo, h in cells)
+                + ", cells that the corrected verdicts show were never violated (deviation 5).",
+                "",
+            ]
     if enf:
         ek, en = _rate(enf)
         out += [
