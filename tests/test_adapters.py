@@ -30,6 +30,8 @@ def test_hook_denial_is_visible_in_stream(agent: str) -> None:
     shells = [e for e in parsed.events if e["type"] == "shell"]
     assert shells and "status" in shells[0]["command"]
     assert any(e["type"] == "denied" and e["source"] == "hook" for e in parsed.events)
+    # A blocked command never ran: checkers must not count it (the enforcement study depends on it).
+    assert shells[0].get("denied") is True
 
 
 def test_codex_hook_denial_only_in_message() -> None:
@@ -101,3 +103,21 @@ def test_gemini_reaches_the_gateway_through_an_allowed_forwarder() -> None:
 def test_unknown_agent() -> None:
     with pytest.raises(ValueError, match="unknown agent"):
         agents.get("nope")
+
+
+def test_gemini_marks_a_hook_blocked_command_as_not_run() -> None:
+    stream = "\n".join(
+        json.dumps(obj)
+        for obj in (
+            {
+                "type": "tool_use",
+                "tool_name": "run_shell_command",
+                "tool_id": "t1",
+                "parameters": {"command": "git push"},
+            },
+            {"type": "tool_result", "tool_id": "t1", "status": "error", "output": "Hook denied: obey: never push"},
+        )
+    )
+    parsed = agents.get("gemini").parse(stream)
+    shell = next(e for e in parsed.events if e["type"] == "shell")
+    assert shell["denied"] is True and any(e["type"] == "denied" for e in parsed.events)

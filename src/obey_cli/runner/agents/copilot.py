@@ -84,6 +84,8 @@ class Copilot(Adapter):
                     event["output"] = truncate(text)
                     event["exit_code"] = 0 if data.get("success") else _exit_from_text(text)
                 if not data.get("success") and "denied" in text.lower():
+                    if event is not None and event["type"] == "shell":
+                        event["denied"] = True  # blocked before it ran: not an executed command
                     out.events.append(
                         {
                             "type": "denied",

@@ -143,6 +143,8 @@ def _tool_events(part: dict[str, Any]) -> list[dict[str, Any]]:
     else:
         events.append({"type": "tool", "tool": tool, "input": {k: truncate(str(v), 300) for k, v in data.items()}})
     if status == "error" and error:
+        if "obey" in error.lower() and events and events[0]["type"] == "shell":
+            events[0]["denied"] = True  # the plugin threw before the command ran
         events.append(
             {
                 "type": "denied" if "obey" in error.lower() else "tool_error",

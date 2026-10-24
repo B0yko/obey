@@ -72,7 +72,9 @@ class Gemini(Adapter):
                     m = _EXIT_RE.search(text)
                     event["exit_code"] = int(m.group(1)) if m else (0 if obj.get("status") == "success" else None)
                     event["output"] = truncate(text)
-                if obj.get("status") == "error" and "deny" in text.lower():
+                if obj.get("status") == "error" and any(w in text.lower() for w in ("deny", "denied", "obey:")):
+                    if event is not None and event["type"] == "shell":
+                        event["denied"] = True  # blocked before it ran: not an executed command
                     out.events.append(
                         {
                             "type": "denied",
