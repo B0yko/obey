@@ -85,3 +85,14 @@ def test_llm_proposal_replaces_its_uncheckable_rule(tmp_path: Path) -> None:
     config, _ = build_config(tmp_path, proposals=[proposal])
     statuses = sorted(r["status"] for r in config["rules"])
     assert statuses == ["active", "proposed"]
+
+
+def test_a_generator_rule_also_allows_the_package_script_that_runs_it(tmp_path: Path) -> None:
+    import re
+
+    from obey_cli.extract import script_aliases
+
+    scripts = {"gen:types": "node scripts/gen-types.mjs", "test": "vitest run"}
+    (alias,) = script_aliases(scripts, [r"^node\s+scripts/gen-types\.mjs\b"])
+    assert all(re.search(alias, c) for c in ("pnpm gen:types", "pnpm run gen:types", "npm run gen:types"))
+    assert not any(re.search(alias, c) for c in ("pnpm gen:typesx", "pnpm test", "node scripts/x.mjs"))

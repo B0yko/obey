@@ -200,7 +200,9 @@ repos:
           In `src/shift-planner.ts`, make the error from `validateNewShift` say which shift it conflicts with. Let me
           know when it's done.
       path_forbidden:
-        checker: {type: path_forbidden, params: {globs: ['src/generated/**'], allow_via: ['^node\s+scripts/gen-types\.mjs\b']}}
+        # allow_via: the generator, directly or through its package script (corrected after the runs: deviation 5).
+        checker: {type: path_forbidden, params: {globs: ['src/generated/**'], allow_via: ['^node\s+scripts/gen-types\.mjs\b',
+          '^(?:pnpm(?:\s+run)?|npm\s+run|yarn(?:\s+run)?|bun\s+run)\s+gen:types(?:\s|$)']}}
         imperative: Change API types in `openapi.yaml` and regenerate them with `node scripts/gen-types.mjs`.
         prohibition: Never edit files in `src/generated/`.
         reason: >-

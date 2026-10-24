@@ -96,7 +96,7 @@ class ClaudeCode(Adapter):
                     content = _result_text(block.get("content"))
                     if event is None:
                         continue
-                    denied = _denial(content)
+                    denied = _denial(content, bool(block.get("is_error")))
                     if denied:
                         out.events.append(
                             {
@@ -193,8 +193,11 @@ def _result_text(content: Any) -> str:
     return ""
 
 
-def _denial(text: str) -> str | None:
-    lowered = text.lower()
-    if "hook" in lowered and ("denied" in lowered or "blocked" in lowered or "pretooluse" in lowered):
+def _denial(text: str, is_error: bool = True) -> str | None:
+    # Only an error result that a hook produced is a refusal ("PreToolUse:Bash hook error: obey: ..."); output that
+    # merely mentions hooks, such as `cat .claude/settings.json`, is not.
+    if not is_error:
+        return None
+    if text.lstrip().startswith(("PreToolUse", "PermissionRequest")) or "obey: " in text:
         return text
     return None

@@ -121,3 +121,32 @@ def test_gemini_marks_a_hook_blocked_command_as_not_run() -> None:
     parsed = agents.get("gemini").parse(stream)
     shell = next(e for e in parsed.events if e["type"] == "shell")
     assert shell["denied"] is True and any(e["type"] == "denied" for e in parsed.events)
+
+
+def test_claude_code_output_that_mentions_hooks_is_not_a_denial() -> None:
+    lines = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "cat .claude/settings.json"}}
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "t1",
+                        "is_error": False,
+                        "content": '{"hooks": {"PreToolUse": [...]}} denied blocked',
+                    }
+                ]
+            },
+        },
+    ]
+    parsed = agents.get("claude-code").parse("\n".join(json.dumps(x) for x in lines))
+    shell = next(e for e in parsed.events if e["type"] == "shell")
+    assert not shell.get("denied") and not any(e["type"] == "denied" for e in parsed.events)

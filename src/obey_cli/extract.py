@@ -1164,7 +1164,32 @@ def extract(files: Iterable[InstructionFile], root: Any = None) -> list[Extracte
                     if isinstance(params.get(key), list):
                         params[key] = list(dict.fromkeys(_rebase(g, base, top_dirs) for g in params[key]))
             out.append(Extracted(candidate=cand, file=f, status=status, checker=checker, reason=reason))
+    if root is not None:
+        scripts = _package_scripts(Path(root))
+        for e in out:
+            params = (e.checker or {}).get("params") or {}
+            if params.get("allow_via"):
+                params["allow_via"] = [*params["allow_via"], *script_aliases(scripts, params["allow_via"])]
     return out
+
+
+def _package_scripts(root: Any) -> dict[str, str]:
+    import json
+
+    try:
+        scripts = json.loads((root / "package.json").read_text(encoding="utf-8")).get("scripts") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return {str(k): str(v) for k, v in scripts.items()} if isinstance(scripts, dict) else {}
+
+
+def script_aliases(scripts: dict[str, str], patterns: list[str]) -> list[str]:
+    """Patterns for package scripts that run an allowed command: `pnpm gen:types` runs `node scripts/gen-types.mjs`."""
+    out = []
+    for name, body in sorted(scripts.items()):
+        if any(re.search(p, body.strip()) for p in patterns):
+            out.append(rf"^(?:pnpm(?:\s+run)?|npm\s+run|yarn(?:\s+run)?|bun\s+run)\s+{re.escape(name)}(?:\s|$)")
+    return [p for p in dict.fromkeys(out) if p not in patterns]
 
 
 # --------------------------------------------------------------------------------------------- optional LLM
