@@ -372,6 +372,12 @@ differ (checked on 2026-10-23):
 - More probe templates per rule type, and probes adapted to the repository with `--llm`.
 - Judging uncheckable rules is out of scope for 0.1 on purpose; obey stays deterministic.
 
+## Author
+
+Created by [Andrii Boiko](https://boiko.ai/).
+
+[Project overview](https://boiko.ai/work/obey/) · [LinkedIn](https://www.linkedin.com/in/andriyboyko/)
+
 ## License
 
 Apache-2.0. Copyright 2026 Andrii Boiko.
