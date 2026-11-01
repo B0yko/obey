@@ -58,7 +58,7 @@ exclude = ["/.github", "/study/results/raw"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.2.0",
     "ruff>=0.6",
     "mypy>=1.11",
     "types-PyYAML>=6.0",
