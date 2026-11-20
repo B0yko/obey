@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog, and the project uses
 semantic versioning.
 
+## [Unreleased]
+
+- The README charts switch with GitHub's own light/dark toggle (`#gh-light-mode-only` / `#gh-dark-mode-only`)
+  instead of the operating-system color scheme, which showed the wrong variant on a themed GitHub page.
+- Package metadata: `Homepage` points at https://boiko.ai/work/obey/, with `Repository` and `Changelog` links.
+- Tests for the probe template branches the two study repositories do not reach (other languages, other
+  forbidden-content patterns, generated and generic forbidden paths, missing repository facts).
+
 ## [0.1.1] - 2026-10-24
 
 Documentation and packaging only; the CLI, the checkers and the hooks behave as in 0.1.0.

@@ -203,10 +203,12 @@ Two repositories authored for the study, ten rule types, each tested with the ru
 phrasings, 14 runs per cell. This is **probe compliance**: on small tasks built so that breaking the rule is the easy
 route, not compliance in everyday use.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/compliance-by-phrasing-dark.svg">
+<a href="https://github.com/B0yko/obey#gh-light-mode-only">
   <img alt="Probe compliance by phrasing and harness: about 80% with no rule, 100% with the rule in any phrasing" src="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/compliance-by-phrasing-light.svg">
-</picture>
+</a>
+<a href="https://github.com/B0yko/obey#gh-dark-mode-only">
+  <img alt="Probe compliance by phrasing and harness: about 80% with no rule, 100% with the rule in any phrasing" src="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/compliance-by-phrasing-dark.svg">
+</a>
 
 | Condition | As registered | Corrected | Exercised runs |
 |---|---|---|---|
@@ -240,10 +242,12 @@ Every rule type that agents broke without the rule was compiled by `obey enforce
 git pre-commit check, and the same probes were run again, still without the rule in AGENTS.md: the agent learns the
 rule only when a hook refuses it.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/enforcement-before-after-dark.svg">
+<a href="https://github.com/B0yko/obey#gh-light-mode-only">
   <img alt="Probe compliance without the rule, before and with hooks, for the five rule types agents broke" src="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/enforcement-before-after-light.svg">
-</picture>
+</a>
+<a href="https://github.com/B0yko/obey#gh-dark-mode-only">
+  <img alt="Probe compliance without the rule, before and with hooks, for the five rule types agents broke" src="https://raw.githubusercontent.com/B0yko/obey/main/docs/images/enforcement-before-after-dark.svg">
+</a>
 
 - In the 13 cells (rule type × repository × agent) that agents broke without the rule, compliance went from 34%
   [27–42] to 100% [97–100] with hooks (+65 points, p < 0.001, stratified permutation test).
