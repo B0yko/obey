@@ -32,6 +32,7 @@ dependencies = [
 study = [
     "matplotlib>=3.8",
     "numpy>=1.26",
+    "pillow>=13.0.0; python_version >= '3.11'",
 ]
 
 [project.scripts]
@@ -67,6 +68,7 @@ dev = [
     "types-jsonschema>=4.26.0.20261006",
     "numpy>=2.2.6",
     "matplotlib>=3.10.9",
+    "pillow>=13.0.0; python_version >= '3.11'",
 ]
 
 [tool.ruff]
