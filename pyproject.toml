@@ -38,8 +38,10 @@ study = [
 obey = "obey_cli.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/B0yko/obey"
+Homepage = "https://boiko.ai/work/obey/"
+Repository = "https://github.com/B0yko/obey"
 Issues = "https://github.com/B0yko/obey/issues"
+Changelog = "https://github.com/B0yko/obey/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling>=1.25"]
