@@ -1,0 +1,12 @@
+{"version": 2, "width": 110, "height": 45, "timestamp": 1795176349, "env": {"SHELL": "/bin/zsh", "TERM": null}}
+[0.007328, "o", "$ obey init          # read AGENTS.md, extract rules\r\n"]
+[0.084075, "o", "1 instruction file(s), 3 rules: 3 active, 0 uncheckable, 0 proposed -> obey.yaml\r\n"]
+[0.101207, "o", "probes for 3 of 3 active rules (3 new); language typescript, package manager npm, test command npm test\r\n"]
+[0.10805, "o", "\r\n$ obey lint          # the report card, no agent runs\r\n"]
+[0.174315, "o", "ok    obey.yaml is valid: 3 rules, 3 active, 0 uncheckable\r\nok    1 instruction file(s) match obey.yaml\r\nnote  no enforcement installed (obey enforce)\r\nok    badge written to obey-badge.json (3 checkable)\r\n"]
+[0.182576, "o", "\r\n$ obey enforce       # hooks for 6 agents + git pre-commit\r\n"]
+[0.24045, "o", "Updated: .obey/.gitignore, .obey/hooks/obey_engine.py, .obey/hooks/obey_hook.py, .obey/hooks/rules.json, .obey/pre-commit, .claude/settings.json, .codex/hooks.json, .cursor/hooks.json, .gemini/settings.json, .github/hooks/obey.json, .opencode/plugins/obey.ts\r\nGit hook: ln -s ../../.obey/pre-commit .git/hooks/pre-commit && ln -s ../../.obey/pre-commit .git/hooks/commit-msg  (or use the pre-commit framework; see the README)\r\n"]
+[0.242505, "o", "\r\n$ agent tries: npm install date-fns   (rule: use pnpm, never npm)\r\n"]
+[0.280615, "o", "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"obey: this breaks the rule \\\"Use pnpm for all package operations. Never use npm or yarn.\\\" (AGENTS.md:3). Found: npm install date-fns.\"}}\r\n"]
+[0.284322, "o", "\r\n$ git commit with a hand edit to src/generated/   (rule: never edit it)\r\n"]
+[0.570898, "o", "obey: commit blocked\r\n  - obey: this breaks the rule \"Never edit files under src/generated/; regenerate them with pnpm gen:types.\" (AGENTS.md:4). Found: modified src/generated/types.ts.\r\n"]

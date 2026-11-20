@@ -10,6 +10,7 @@ semantic versioning.
 - Package metadata: `Homepage` points at https://boiko.ai/work/obey/, with `Repository` and `Changelog` links.
 - Tests for the probe template branches the two study repositories do not reach (other languages, other
   forbidden-content patterns, generated and generic forbidden paths, missing repository facts).
+- Asciinema recordings of the demo replay and the enforce smoke (`docs/demo.cast`, `docs/enforce-smoke.cast`).
 - Study charts: pillow 13 on Python 3.11+ (62 advisories fixed in 13.0.0). Python 3.10 keeps pillow 12.3.0,
   the last release supporting it; the runtime dependencies are unaffected.
 
